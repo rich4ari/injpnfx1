@@ -36,7 +36,6 @@ const Invoice = ({ order, invoiceNumber }: InvoiceProps) => {
           </div>
           <div className="text-right">
             <h2 className="text-3xl font-bold text-red-600">INVOICE</h2>
-            <p className="text-gray-600 mt-1">injapan-food.lovable.app</p>
           </div>
         </div>
         
@@ -49,10 +48,6 @@ const Invoice = ({ order, invoiceNumber }: InvoiceProps) => {
             <div className="flex items-center">
               <span className="mr-2">📧</span>
               <span>info@injapanfood.com</span>
-            </div>
-            <div className="flex items-center">
-              <span className="mr-2">🌐</span>
-              <span>injapan-food.lovable.app</span>
             </div>
           </div>
         </div>
