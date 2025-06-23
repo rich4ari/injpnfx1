@@ -1,4 +1,3 @@
-
 import { 
   collection, 
   getDocs, 
@@ -33,6 +32,11 @@ export const getAllOrders = async (): Promise<Order[]> => {
 
 export const getOrdersByUser = async (userId: string): Promise<Order[]> => {
   try {
+    if (!userId) {
+      console.log('No userId provided, returning empty array');
+      return [];
+    }
+
     const ordersRef = collection(db, ORDERS_COLLECTION);
     const q = query(
       ordersRef, 
@@ -41,10 +45,13 @@ export const getOrdersByUser = async (userId: string): Promise<Order[]> => {
     );
     const snapshot = await getDocs(q);
     
-    return snapshot.docs.map(doc => ({
+    const orders = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     } as Order));
+
+    console.log(`Found ${orders.length} orders for user ${userId}`);
+    return orders;
   } catch (error) {
     console.error('Error fetching user orders:', error);
     throw error;
@@ -87,6 +94,8 @@ export const createOrder = async (orderData: {
   status?: string;
 }) => {
   try {
+    console.log('Creating order with data:', orderData);
+    
     const ordersRef = collection(db, ORDERS_COLLECTION);
     const docRef = await addDoc(ordersRef, {
       user_id: orderData.user_id || null,
@@ -98,6 +107,7 @@ export const createOrder = async (orderData: {
       updated_at: new Date().toISOString()
     });
     
+    console.log('Order created successfully with ID:', docRef.id);
     return docRef.id;
   } catch (error) {
     console.error('Error creating order:', error);

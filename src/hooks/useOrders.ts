@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getAllOrders, getOrdersByUser, createOrder } from '@/services/orderService';
 import { Order, CartItem } from '@/types';
@@ -19,7 +18,7 @@ export const useUserOrders = (userId: string) => {
     queryFn: () => getOrdersByUser(userId),
     enabled: !!userId,
     staleTime: 0,
-    refetchInterval: 2000,
+    refetchInterval: 5000, // Refetch every 5 seconds for user orders
     refetchIntervalInBackground: true,
   });
 };

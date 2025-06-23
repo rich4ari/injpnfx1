@@ -46,7 +46,7 @@ const CheckoutForm = ({ cart, total, onOrderComplete }: CheckoutFormProps) => {
     defaultValues: {
       fullName: '',
       whatsapp: '',
-      email: '',
+      email: user?.email || '',
       prefecture: '',
       city: '',
       postalCode: '',
@@ -102,7 +102,7 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
     setIsSubmitting(true);
 
     try {
-      // Create order in Firebase
+      // Create order in Firebase/Firestore
       const orderData = {
         items: cart.map(item => ({
           name: item.name,
@@ -159,17 +159,19 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
       // Show success message
       toast({
         title: "Pesanan Berhasil Dibuat",
-        description: "Anda akan diarahkan ke WhatsApp untuk menyelesaikan pesanan.",
+        description: "Pesanan telah disimpan di riwayat Anda. Anda akan diarahkan ke WhatsApp untuk menyelesaikan pesanan.",
       });
 
-      // Show invoice
+      // Show invoice first
       setShowInvoice(true);
       
-      // Open WhatsApp
-      const whatsappMessage = generateWhatsAppMessage(data);
-      const phoneNumber = '6285155452259'; // Replace with your actual WhatsApp number
-      const whatsappUrl = `https://wa.me/${phoneNumber}?text=${whatsappMessage}`;
-      window.open(whatsappUrl, '_blank');
+      // Open WhatsApp after a short delay
+      setTimeout(() => {
+        const whatsappMessage = generateWhatsAppMessage(data);
+        const phoneNumber = '6285155452259'; // Replace with your actual WhatsApp number
+        const whatsappUrl = `https://wa.me/${phoneNumber}?text=${whatsappMessage}`;
+        window.open(whatsappUrl, '_blank');
+      }, 1000);
 
       // Clear form and cart
       form.reset();
@@ -340,7 +342,7 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
               </span>
             </Button>
             <p className="text-center text-sm text-gray-600 mt-2">
-              Anda akan diarahkan ke WhatsApp untuk menyelesaikan pesanan
+              Pesanan akan disimpan di riwayat Anda dan dikirim ke WhatsApp
             </p>
           </div>
         </form>

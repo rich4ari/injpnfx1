@@ -1,4 +1,3 @@
-
 import { LogOut, User, ShoppingBag, Settings, Percent } from 'lucide-react';
 import { useAuth } from '@/hooks/useFirebaseAuth';
 import { useNavigate } from 'react-router-dom';
@@ -71,7 +70,7 @@ const UserMenu = () => {
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleOrdersClick}>
           <ShoppingBag className="mr-2 h-4 w-4" />
-          <span>Pesanan Saya</span>
+          <span>Riwayat Pesanan</span>
         </DropdownMenuItem>
         <DropdownMenuItem onClick={handleReferralClick}>
           <Percent className="mr-2 h-4 w-4" />
