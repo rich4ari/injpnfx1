@@ -1,17 +1,19 @@
-
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { prefectures } from '@/data/prefectures';
-import { CartItem } from '@/types';
+import { CartItem, Order } from '@/types';
 import { toast } from '@/hooks/use-toast';
+import { useCreateOrder } from '@/hooks/useOrders';
+import { useAuth } from '@/hooks/useFirebaseAuth';
+import InvoiceModal from '@/components/InvoiceModal';
 
 const checkoutSchema = z.object({
   fullName: z.string().min(2, 'Nama lengkap harus minimal 2 karakter'),
@@ -34,6 +36,10 @@ interface CheckoutFormProps {
 
 const CheckoutForm = ({ cart, total, onOrderComplete }: CheckoutFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showInvoice, setShowInvoice] = useState(false);
+  const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const { user } = useAuth();
+  const createOrder = useCreateOrder();
 
   const form = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -96,28 +102,84 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
     setIsSubmitting(true);
 
     try {
-      const whatsappMessage = generateWhatsAppMessage(data);
-      const phoneNumber = '6285155452259'; // Replace with your actual WhatsApp number
-      const whatsappUrl = `https://wa.me/${phoneNumber}?text=${whatsappMessage}`;
-      
-      // Open WhatsApp
-      window.open(whatsappUrl, '_blank');
+      // Create order in Firebase
+      const orderData = {
+        items: cart.map(item => ({
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          image_url: item.image_url,
+          selectedVariants: item.selectedVariants || {}
+        })),
+        totalPrice: total,
+        customerInfo: {
+          name: data.fullName,
+          email: data.email,
+          phone: data.whatsapp,
+          prefecture: data.prefecture,
+          city: data.city,
+          postal_code: data.postalCode,
+          address: data.address,
+          notes: data.notes
+        },
+        userId: user?.uid
+      };
+
+      const result = await createOrder.mutateAsync({
+        items: orderData.items,
+        totalPrice: orderData.totalPrice,
+        customerInfo: orderData.customerInfo,
+        userId: orderData.userId
+      });
+
+      // Create order object for invoice
+      const newOrder: Order = {
+        id: result,
+        user_id: user?.uid || '',
+        items: orderData.items,
+        total_price: orderData.totalPrice,
+        customer_info: orderData.customerInfo,
+        status: 'pending',
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        total_amount: orderData.totalPrice,
+        shipping_address: {
+          name: data.fullName,
+          address: data.address,
+          city: data.city,
+          state: data.prefecture,
+          zip: data.postalCode,
+          country: 'Japan'
+        },
+        payment_method: 'cod'
+      };
+
+      setCreatedOrder(newOrder);
       
       // Show success message
       toast({
-        title: "Pesanan Berhasil Dikirim",
+        title: "Pesanan Berhasil Dibuat",
         description: "Anda akan diarahkan ke WhatsApp untuk menyelesaikan pesanan.",
       });
+
+      // Show invoice
+      setShowInvoice(true);
+      
+      // Open WhatsApp
+      const whatsappMessage = generateWhatsAppMessage(data);
+      const phoneNumber = '6285155452259'; // Replace with your actual WhatsApp number
+      const whatsappUrl = `https://wa.me/${phoneNumber}?text=${whatsappMessage}`;
+      window.open(whatsappUrl, '_blank');
 
       // Clear form and cart
       form.reset();
       onOrderComplete();
       
     } catch (error) {
-      console.error('Error creating WhatsApp message:', error);
+      console.error('Error creating order:', error);
       toast({
         title: "Terjadi Kesalahan",
-        description: "Gagal membuat pesan WhatsApp. Silakan coba lagi.",
+        description: "Gagal membuat pesanan. Silakan coba lagi.",
         variant: "destructive",
       });
     } finally {
@@ -283,6 +345,15 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
           </div>
         </form>
       </Form>
+
+      {/* Invoice Modal */}
+      {showInvoice && createdOrder && (
+        <InvoiceModal
+          isOpen={showInvoice}
+          onClose={() => setShowInvoice(false)}
+          order={createdOrder}
+        />
+      )}
     </div>
   );
 };

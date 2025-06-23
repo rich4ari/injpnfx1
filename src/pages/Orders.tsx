@@ -1,18 +1,22 @@
-
 import { useOrders } from '@/hooks/useOrders';
 import { useAuth } from '@/hooks/useAuth';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
+import InvoiceModal from '@/components/InvoiceModal';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ShoppingBag, Calendar, Package } from 'lucide-react';
+import { ShoppingBag, Calendar, Package, FileText } from 'lucide-react';
 import { Order } from '@/types';
 import { Navigate } from 'react-router-dom';
+import { useState } from 'react';
 
 const Orders = () => {
   const { user, loading: authLoading } = useAuth();
   const { data: orders, isLoading, error } = useOrders();
+  const [showInvoice, setShowInvoice] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   // Redirect to auth if not logged in
   if (!authLoading && !user) {
@@ -34,6 +38,11 @@ const Orders = () => {
       </div>
     );
   }
+
+  const handleShowInvoice = (order: Order) => {
+    setSelectedOrder(order);
+    setShowInvoice(true);
+  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('id-ID', {
@@ -134,9 +143,14 @@ const Orders = () => {
                           {formatDate(order.created_at)}
                         </CardDescription>
                       </div>
-                      <Badge variant={getStatusBadgeVariant(order.status || 'pending')}>
-                        {getStatusText(order.status || 'pending')}
-                      </Badge>
+                      <div className="text-right space-y-2">
+                        <Badge variant={getStatusBadgeVariant(order.status || 'pending')}>
+                          {getStatusText(order.status || 'pending')}
+                        </Badge>
+                        <div className="text-lg font-bold text-primary">
+                          {formatPrice(order.total_price)}
+                        </div>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -152,6 +166,11 @@ const Orders = () => {
                                 <p className="text-sm text-gray-600">
                                   {item.quantity} x {formatPrice(item.price)}
                                 </p>
+                                {item.selectedVariants && Object.keys(item.selectedVariants).length > 0 && (
+                                  <p className="text-xs text-gray-500">
+                                    Varian: {Object.entries(item.selectedVariants).map(([type, value]) => `${type}: ${value}`).join(', ')}
+                                  </p>
+                                )}
                               </div>
                               <p className="font-medium">
                                 {formatPrice(item.quantity * item.price)}
@@ -181,12 +200,15 @@ const Orders = () => {
                         </div>
                       </div>
 
-                      {/* Total */}
-                      <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-                        <span className="text-lg font-medium text-gray-900">Total:</span>
-                        <span className="text-xl font-bold text-primary">
-                          {formatPrice(order.total_price)}
-                        </span>
+                      {/* Invoice Button */}
+                      <div className="pt-4 border-t border-gray-200">
+                        <Button 
+                          onClick={() => handleShowInvoice(order)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white"
+                        >
+                          <FileText className="w-4 h-4 mr-2" />
+                          Lihat Invoice
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
@@ -196,6 +218,19 @@ const Orders = () => {
           )}
         </div>
       </div>
+
+      {/* Invoice Modal */}
+      {showInvoice && selectedOrder && (
+        <InvoiceModal
+          isOpen={showInvoice}
+          onClose={() => {
+            setShowInvoice(false);
+            setSelectedOrder(null);
+          }}
+          order={selectedOrder}
+        />
+      )}
+
       <Footer />
     </div>
   );

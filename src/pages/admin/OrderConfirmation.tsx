@@ -1,14 +1,23 @@
-
-import React from 'react';
+import React, { useState } from 'react';
 import { usePendingOrders } from '@/hooks/usePendingOrders';
 import AdminLayout from '@/components/admin/AdminLayout';
 import OrderConfirmation from '@/components/admin/OrderConfirmation';
+import InvoiceModal from '@/components/InvoiceModal';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { AlertCircle, Clock } from 'lucide-react';
+import { AlertCircle, Clock, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Order } from '@/types';
 
 const OrderConfirmationPage = () => {
   const { data: pendingOrders = [], isLoading } = usePendingOrders();
+  const [showInvoice, setShowInvoice] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+
+  const handleShowInvoice = (order: Order) => {
+    setSelectedOrder(order);
+    setShowInvoice(true);
+  };
 
   if (isLoading) {
     return (
@@ -75,9 +84,33 @@ const OrderConfirmationPage = () => {
             )}
 
             {pendingOrders.map((order) => (
-              <OrderConfirmation key={order.id} order={order} />
+              <div key={order.id} className="space-y-4">
+                <OrderConfirmation order={order} />
+                <div className="flex justify-end">
+                  <Button
+                    onClick={() => handleShowInvoice(order)}
+                    variant="outline"
+                    className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Lihat Invoice
+                  </Button>
+                </div>
+              </div>
             ))}
           </div>
+        )}
+
+        {/* Invoice Modal */}
+        {showInvoice && selectedOrder && (
+          <InvoiceModal
+            isOpen={showInvoice}
+            onClose={() => {
+              setShowInvoice(false);
+              setSelectedOrder(null);
+            }}
+            order={selectedOrder}
+          />
         )}
       </div>
     </AdminLayout>

@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { useOrders } from '@/hooks/useOrders';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -7,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
-import { Search, Eye, CheckCircle, XCircle, Clock, Package } from 'lucide-react';
+import { Search, Eye, CheckCircle, XCircle, Clock, Package, FileText } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
+import InvoiceModal from '@/components/InvoiceModal';
 import { Order } from '@/types';
 import { updateOrderStatus } from '@/services/orderService';
 import { useQueryClient } from '@tanstack/react-query';
@@ -18,6 +18,8 @@ const OrdersHistory = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [showInvoice, setShowInvoice] = useState(false);
+  const [invoiceOrder, setInvoiceOrder] = useState<Order | null>(null);
   const queryClient = useQueryClient();
 
   const filteredOrders = orders.filter(order => {
@@ -69,6 +71,11 @@ const OrdersHistory = () => {
     }
   };
 
+  const handleShowInvoice = (order: Order) => {
+    setInvoiceOrder(order);
+    setShowInvoice(true);
+  };
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('ja-JP', {
       style: 'currency',
@@ -91,7 +98,7 @@ const OrdersHistory = () => {
       <div className="p-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900">Riwayat Pesanan</h1>
-          <p className="text-gray-600">Kelola dan monitor semua pesanan</p>
+          <p className="text-gray-600">Kelola dan monitor semua pesanan dengan invoice otomatis</p>
         </div>
 
         {/* Filters */}
@@ -220,6 +227,16 @@ const OrdersHistory = () => {
                         <Eye className="w-4 h-4 mr-2" />
                         Detail
                       </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleShowInvoice(order)}
+                        className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100"
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Invoice
+                      </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -228,7 +245,7 @@ const OrdersHistory = () => {
           )}
         </div>
 
-        {/* Order Detail Modal/Dialog would go here */}
+        {/* Order Detail Modal */}
         {selectedOrder && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <Card className="w-full max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -280,9 +297,31 @@ const OrdersHistory = () => {
                     </div>
                   </div>
                 </div>
+
+                <div className="flex space-x-2">
+                  <Button
+                    onClick={() => handleShowInvoice(selectedOrder)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <FileText className="w-4 h-4 mr-2" />
+                    Lihat Invoice
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* Invoice Modal */}
+        {showInvoice && invoiceOrder && (
+          <InvoiceModal
+            isOpen={showInvoice}
+            onClose={() => {
+              setShowInvoice(false);
+              setInvoiceOrder(null);
+            }}
+            order={invoiceOrder}
+          />
         )}
       </div>
     </AdminLayout>

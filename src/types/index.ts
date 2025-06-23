@@ -36,16 +36,17 @@ export interface Order {
   payment_method: 'credit_card' | 'paypal' | 'cod';
   created_at: string;
   updated_at: string;
-  customer_info?: CustomerInfo;
+  customer_info: CustomerInfo;
   referralTransaction?: any;
+  invoice_number?: string;
 }
 
 export interface OrderItem {
-  product_id: string;
+  product_id?: string;
   quantity: number;
   price: number;
   name: string;
-  image_url: string;
+  image_url?: string;
   selectedVariants?: Record<string, any>;
 }
 
@@ -136,7 +137,19 @@ export interface Prefecture {
   name_en: string;
 }
 
-// Missing OrderTracking interface
+// Invoice interface
+export interface Invoice {
+  id: string;
+  order_id: string;
+  invoice_number: string;
+  created_at: string;
+  total_amount: number;
+  status: 'paid' | 'unpaid' | 'cancelled';
+  payment_method?: string;
+  payment_date?: string;
+}
+
+// OrderTracking interface
 export interface OrderTracking {
   id: string;
   order_id: string;
