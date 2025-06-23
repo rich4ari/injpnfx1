@@ -12,9 +12,11 @@ import InvoiceModal from '@/components/InvoiceModal';
 import { Order } from '@/types';
 import { updateOrderStatus } from '@/services/orderService';
 import { useQueryClient } from '@tanstack/react-query';
+import ErrorState from '@/components/ErrorState';
+import EmptyState from '@/components/EmptyState';
 
 const OrdersHistory = () => {
-  const { data: orders = [], isLoading } = useOrders();
+  const { data: orders = [], isLoading, error } = useOrders();
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -93,6 +95,20 @@ const OrdersHistory = () => {
     );
   }
 
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="p-8">
+          <ErrorState 
+            title="Error Loading Orders"
+            message="Terjadi kesalahan saat memuat data pesanan. Silakan coba lagi."
+            onRetry={() => queryClient.invalidateQueries({ queryKey: ['orders'] })}
+          />
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="p-8">
@@ -132,20 +148,14 @@ const OrdersHistory = () => {
         {/* Orders List */}
         <div className="space-y-4">
           {filteredOrders.length === 0 ? (
-            <Card>
-              <CardContent className="p-8 text-center">
-                <div className="text-6xl mb-4">📦</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  Tidak ada pesanan ditemukan
-                </h3>
-                <p className="text-gray-600">
-                  {searchTerm || statusFilter !== 'all' 
-                    ? 'Coba ubah filter pencarian atau status'
-                    : 'Belum ada pesanan yang masuk'
-                  }
-                </p>
-              </CardContent>
-            </Card>
+            <EmptyState 
+              title="Tidak ada pesanan ditemukan"
+              message={searchTerm || statusFilter !== 'all' 
+                ? 'Coba ubah filter pencarian atau status'
+                : 'Belum ada pesanan yang masuk'
+              }
+              icon={<Package className="w-16 h-16 text-gray-400 mx-auto" />}
+            />
           ) : (
             filteredOrders.map((order) => (
               <Card key={order.id}>

@@ -8,11 +8,15 @@ import { Badge } from '@/components/ui/badge';
 import { AlertCircle, Clock, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Order } from '@/types';
+import ErrorState from '@/components/ErrorState';
+import EmptyState from '@/components/EmptyState';
+import { useQueryClient } from '@tanstack/react-query';
 
 const OrderConfirmationPage = () => {
-  const { data: pendingOrders = [], isLoading } = usePendingOrders();
+  const { data: pendingOrders = [], isLoading, error } = usePendingOrders();
   const [showInvoice, setShowInvoice] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const queryClient = useQueryClient();
 
   const handleShowInvoice = (order: Order) => {
     setSelectedOrder(order);
@@ -24,6 +28,20 @@ const OrderConfirmationPage = () => {
       <AdminLayout>
         <div className="p-8">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (error) {
+    return (
+      <AdminLayout>
+        <div className="p-8">
+          <ErrorState 
+            title="Error Loading Pending Orders"
+            message="Terjadi kesalahan saat memuat data pesanan pending. Silakan coba lagi."
+            onRetry={() => queryClient.invalidateQueries({ queryKey: ['pending-orders'] })}
+          />
         </div>
       </AdminLayout>
     );
@@ -51,19 +69,11 @@ const OrderConfirmationPage = () => {
         </div>
 
         {pendingOrders.length === 0 ? (
-          <Card>
-            <CardContent className="py-12">
-              <div className="text-center">
-                <div className="text-6xl mb-4">✅</div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                  Tidak Ada Pesanan Pending
-                </h3>
-                <p className="text-gray-600">
-                  Semua pesanan telah dikonfirmasi atau tidak ada pesanan baru.
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          <EmptyState 
+            title="Tidak Ada Pesanan Pending"
+            message="Semua pesanan telah dikonfirmasi atau tidak ada pesanan baru."
+            icon={<Clock className="w-16 h-16 text-gray-400 mx-auto" />}
+          />
         ) : (
           <div className="space-y-6">
             {pendingOrders.some(order => order.referralTransaction) && (

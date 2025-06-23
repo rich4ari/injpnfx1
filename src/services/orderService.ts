@@ -37,41 +37,57 @@ export const getOrdersByUser = async (userId: string): Promise<Order[]> => {
       return [];
     }
 
+    console.log('Fetching orders for user:', userId);
+    
     const ordersRef = collection(db, ORDERS_COLLECTION);
+    
+    // Simplified query without orderBy to avoid index issues
     const q = query(
       ordersRef, 
-      where('user_id', '==', userId),
-      orderBy('created_at', 'desc')
+      where('user_id', '==', userId)
     );
+    
     const snapshot = await getDocs(q);
     
+    // Sort manually on client side to avoid Firebase index requirements
     const orders = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    } as Order));
+    } as Order)).sort((a, b) => {
+      // Sort by created_at descending (newest first)
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
     console.log(`Found ${orders.length} orders for user ${userId}`);
     return orders;
   } catch (error) {
     console.error('Error fetching user orders:', error);
-    throw error;
+    // Return empty array instead of throwing to prevent app crash
+    return [];
   }
 };
 
 export const getPendingOrders = async (): Promise<Order[]> => {
   try {
     const ordersRef = collection(db, ORDERS_COLLECTION);
+    
+    // Simplified query without orderBy to avoid index issues
     const q = query(
       ordersRef,
-      where('status', '==', 'pending'),
-      orderBy('created_at', 'desc')
+      where('status', '==', 'pending')
     );
+    
     const snapshot = await getDocs(q);
     
-    return snapshot.docs.map(doc => ({
+    // Sort manually on client side
+    const orders = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    } as Order));
+    } as Order)).sort((a, b) => {
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+    
+    return orders;
   } catch (error) {
     console.error('Error fetching pending orders:', error);
     throw error;

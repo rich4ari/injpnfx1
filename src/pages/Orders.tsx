@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ShoppingBag, Calendar, Package, FileText, Eye } from 'lucide-react';
+import { ShoppingBag, Calendar, Package, FileText, Eye, AlertCircle } from 'lucide-react';
 import { Order } from '@/types';
 import { Navigate } from 'react-router-dom';
 import { useState } from 'react';
@@ -134,8 +134,19 @@ const Orders = () => {
           ) : error ? (
             <Card>
               <CardContent className="py-8 text-center">
-                <Package className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">Terjadi kesalahan saat memuat pesanan.</p>
+                <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Terjadi Kesalahan
+                </h3>
+                <p className="text-gray-600 mb-4">
+                  Tidak dapat memuat riwayat pesanan. Silakan coba lagi nanti.
+                </p>
+                <Button 
+                  onClick={() => window.location.reload()}
+                  variant="outline"
+                >
+                  Muat Ulang
+                </Button>
               </CardContent>
             </Card>
           ) : !orders || orders.length === 0 ? (
@@ -227,7 +238,7 @@ const Orders = () => {
                         <div className="text-sm text-gray-600 space-y-1">
                           <p><span className="font-medium">Nama:</span> {order.customer_info.name}</p>
                           <p><span className="font-medium">Alamat:</span> {order.customer_info.address}</p>
-                          <p><span className="font-medium">Prefektur:</span> {order.customer_info.prefecture}</p>
+                          <p><span className="font-medium">Prefek:</span> {order.customer_info.prefecture}</p>
                           <p><span className="font-medium">Kode Pos:</span> {order.customer_info.postal_code}</p>
                         </div>
                       </div>

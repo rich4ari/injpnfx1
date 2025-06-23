@@ -18,8 +18,10 @@ export const useUserOrders = (userId: string) => {
     queryFn: () => getOrdersByUser(userId),
     enabled: !!userId,
     staleTime: 0,
-    refetchInterval: 5000, // Refetch every 5 seconds for user orders
-    refetchIntervalInBackground: true,
+    refetchInterval: 10000, // Refetch every 10 seconds for user orders (less frequent)
+    refetchIntervalInBackground: false, // Don't refetch in background for user orders
+    retry: 3, // Retry failed requests
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
   });
 };
 
