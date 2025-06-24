@@ -14,7 +14,7 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { ShippingRate } from '@/utils/shippingCost';
+import { ShippingRate, shippingRates as defaultRates } from '@/utils/shippingCost';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { useShippingRates } from '@/hooks/useShippingRates';
 
@@ -27,9 +27,17 @@ const ShippingRates = () => {
   useEffect(() => {
     // Initialize edited rates with current values
     const initialEditedRates: Record<string, number> = {};
+    
+    // First populate with default rates
+    defaultRates.forEach(rate => {
+      initialEditedRates[rate.prefecture] = rate.cost;
+    });
+    
+    // Then override with fetched rates
     rates.forEach(rate => {
       initialEditedRates[rate.prefecture] = rate.cost;
     });
+    
     setEditedRates(initialEditedRates);
   }, [rates]);
 
@@ -49,12 +57,13 @@ const ShippingRates = () => {
       // Create array of updated rates
       const updatedRates = prefectures.map(prefecture => {
         const existingRate = rates.find(r => r.prefecture === prefecture.name);
+        const defaultRate = defaultRates.find(r => r.prefecture === prefecture.name);
         const editedCost = editedRates[prefecture.name];
         
         return {
           prefecture: prefecture.name,
-          cost: editedCost !== undefined ? editedCost : (existingRate?.cost || 800),
-          estimatedDays: existingRate?.estimatedDays || '3-5 hari'
+          cost: editedCost !== undefined ? editedCost : (existingRate?.cost || defaultRate?.cost || 800),
+          estimatedDays: existingRate?.estimatedDays || defaultRate?.estimatedDays || '3-5 hari'
         };
       });
       
@@ -200,7 +209,12 @@ const ShippingRates = () => {
   };
 
   const hasChanges = () => {
-    return rates.some(rate => editedRates[rate.prefecture] !== rate.cost);
+    return Object.keys(editedRates).some(prefecture => {
+      const rate = rates.find(r => r.prefecture === prefecture);
+      const defaultRate = defaultRates.find(r => r.prefecture === prefecture);
+      const currentCost = rate?.cost || defaultRate?.cost || 800;
+      return editedRates[prefecture] !== currentCost;
+    });
   };
 
   return (
@@ -276,7 +290,8 @@ const ShippingRates = () => {
                     <TableBody>
                       {prefectures.map((prefecture) => {
                         const rate = rates.find(r => r.prefecture === prefecture.name);
-                        const currentCost = rate?.cost || 800;
+                        const defaultRate = defaultRates.find(r => r.prefecture === prefecture.name);
+                        const currentCost = rate?.cost || defaultRate?.cost || 800;
                         const editedCost = editedRates[prefecture.name];
                         const isChanged = editedCost !== undefined && editedCost !== currentCost;
                         
@@ -299,7 +314,7 @@ const ShippingRates = () => {
                             <TableCell>
                               <Input
                                 type="text"
-                                value={rate?.estimatedDays || '3-5 hari'}
+                                value={rate?.estimatedDays || defaultRate?.estimatedDays || '3-5 hari'}
                                 className="w-32"
                                 disabled
                               />

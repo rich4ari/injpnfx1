@@ -20,18 +20,16 @@ const ShippingCalculator = ({
 }: ShippingCalculatorProps) => {
   const [shippingDetails, setShippingDetails] = useState<ShippingRate | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
-  const [calculationError, setCalculationError] = useState<string | null>(null);
-  const { rates, loading, error, getShippingRate } = useShippingRates();
+  const { rates, loading, getShippingRate } = useShippingRates();
 
   useEffect(() => {
-    if (!prefecture || loading) {
+    if (!prefecture) {
       setShippingDetails(null);
       onShippingCostChange(0, { prefecture: '', cost: 0, estimatedDays: '' });
       return;
     }
 
     setIsCalculating(true);
-    setCalculationError(null);
     
     try {
       // Get shipping rate from the real-time rates
@@ -67,11 +65,10 @@ const ShippingCalculator = ({
       };
       setShippingDetails(fallbackRate);
       onShippingCostChange(fallbackRate.cost, fallbackRate);
-      setCalculationError(null);
     } finally {
       setIsCalculating(false);
     }
-  }, [prefecture, subtotal, rates, loading, onShippingCostChange, getShippingRate]);
+  }, [prefecture, subtotal, rates, onShippingCostChange, getShippingRate]);
 
   if (!prefecture) {
     return (
@@ -92,19 +89,6 @@ const ShippingCalculator = ({
         <CardContent className="py-6 text-center">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
           <p className="text-gray-600 text-sm">Menghitung ongkir...</p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (calculationError) {
-    return (
-      <Card className={`border-red-200 bg-red-50 ${className}`}>
-        <CardContent className="py-6 text-center">
-          <p className="text-red-600 text-sm">{calculationError}</p>
-          <p className="text-red-500 text-xs mt-2">
-            Silakan pilih prefektur lain atau refresh halaman
-          </p>
         </CardContent>
       </Card>
     );

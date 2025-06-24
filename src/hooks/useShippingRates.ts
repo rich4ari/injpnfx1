@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { collection, onSnapshot, doc, setDoc, getDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { ShippingRate, shippingRates as defaultRates } from '@/utils/shippingCost';
@@ -7,55 +7,63 @@ import { toast } from '@/hooks/use-toast';
 const SHIPPING_RATES_COLLECTION = 'shipping_rates';
 
 export const useShippingRates = () => {
-  const [rates, setRates] = useState<ShippingRate[]>([]);
+  const [rates, setRates] = useState<ShippingRate[]>(defaultRates);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
     setLoading(true);
     
-    // Set up real-time listener for shipping rates
-    const unsubscribe = onSnapshot(
-      collection(db, SHIPPING_RATES_COLLECTION),
-      (snapshot) => {
-        try {
-          const fetchedRates: ShippingRate[] = [];
-          
-          snapshot.forEach((doc) => {
-            fetchedRates.push({
-              prefecture: doc.id,
-              cost: doc.data().cost,
-              estimatedDays: doc.data().estimatedDays
+    try {
+      // Set up real-time listener for shipping rates
+      const unsubscribe = onSnapshot(
+        collection(db, SHIPPING_RATES_COLLECTION),
+        (snapshot) => {
+          try {
+            const fetchedRates: ShippingRate[] = [];
+            
+            snapshot.forEach((doc) => {
+              fetchedRates.push({
+                prefecture: doc.id,
+                cost: doc.data().cost,
+                estimatedDays: doc.data().estimatedDays
+              });
             });
-          });
-          
-          if (fetchedRates.length > 0) {
-            setRates(fetchedRates);
-          } else {
-            // If no rates in database, use default rates
+            
+            if (fetchedRates.length > 0) {
+              setRates(fetchedRates);
+            } else {
+              // If no rates in database, use default rates
+              setRates(defaultRates);
+              // Initialize database with default rates
+              initializeDefaultRates();
+            }
+            
+            setLoading(false);
+            setError(null);
+          } catch (err) {
+            console.error('Error processing shipping rates:', err);
             setRates(defaultRates);
-            // Initialize database with default rates
-            initializeDefaultRates();
+            setError(err instanceof Error ? err : new Error('Unknown error'));
+            setLoading(false);
           }
-          
-          setLoading(false);
-          setError(null);
-        } catch (err) {
-          console.error('Error processing shipping rates:', err);
+        },
+        (err) => {
+          console.error('Error fetching shipping rates:', err);
           setRates(defaultRates);
-          setError(err instanceof Error ? err : new Error('Unknown error'));
+          setError(err);
           setLoading(false);
         }
-      },
-      (err) => {
-        console.error('Error fetching shipping rates:', err);
-        setRates(defaultRates);
-        setError(err);
-        setLoading(false);
-      }
-    );
-    
-    return () => unsubscribe();
+      );
+      
+      return () => unsubscribe();
+    } catch (err) {
+      console.error('Error setting up shipping rates listener:', err);
+      setRates(defaultRates);
+      setError(err instanceof Error ? err : new Error('Unknown error'));
+      setLoading(false);
+      return () => {}; // Return empty cleanup function
+    }
   }, []);
 
   const initializeDefaultRates = async () => {
@@ -136,9 +144,15 @@ export const useShippingRates = () => {
     }
   };
 
-  const getShippingRate = (prefecture: string): ShippingRate | undefined => {
-    return rates.find(rate => rate.prefecture === prefecture);
-  };
+  const getShippingRate = useCallback((prefecture: string): ShippingRate | undefined => {
+    // First try to find in fetched rates
+    const fetchedRate = rates.find(rate => rate.prefecture === prefecture);
+    if (fetchedRate) return fetchedRate;
+    
+    // If not found in fetched rates, try to find in default rates
+    const defaultRate = defaultRates.find(rate => rate.prefecture === prefecture);
+    return defaultRate;
+  }, [rates]);
 
   return {
     rates,
