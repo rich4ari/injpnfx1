@@ -31,24 +31,29 @@ const ShippingCalculator = ({
     setIsCalculating(true);
     setCalculationError(null);
     
-    try {
-      // Calculate shipping immediately instead of using setTimeout
-      const details = calculateShippingCost(prefecture);
-      const freeShipping = isFreeShipping(subtotal, prefecture);
-      
-      const finalDetails = {
-        ...details,
-        cost: freeShipping ? 0 : details.cost
-      };
-      
-      setShippingDetails(finalDetails);
-      onShippingCostChange(finalDetails.cost, finalDetails);
-    } catch (error) {
-      console.error('Error calculating shipping:', error);
-      setCalculationError('Gagal menghitung ongkir. Silakan coba lagi.');
-    } finally {
-      setIsCalculating(false);
-    }
+    const fetchShippingRate = async () => {
+      try {
+        // Calculate shipping cost from database or default rates
+        const details = await calculateShippingCost(prefecture);
+        const freeShipping = isFreeShipping(subtotal, prefecture);
+        
+        const finalDetails = {
+          ...details,
+          cost: freeShipping ? 0 : details.cost
+        };
+        
+        setShippingDetails(finalDetails);
+        onShippingCostChange(finalDetails.cost, finalDetails);
+      } catch (error) {
+        console.error('Error calculating shipping:', error);
+        setCalculationError('Gagal menghitung ongkir. Silakan coba lagi.');
+        onShippingCostChange(0, { prefecture: '', cost: 0, estimatedDays: '' });
+      } finally {
+        setIsCalculating(false);
+      }
+    };
+
+    fetchShippingRate();
   }, [prefecture, subtotal, onShippingCostChange]);
 
   if (!prefecture) {
@@ -126,7 +131,7 @@ const ShippingCalculator = ({
                   GRATIS
                 </Badge>
                 <span className="text-xs text-gray-500 line-through">
-                  {formatShippingCost(calculateShippingCost(prefecture).cost)}
+                  {formatShippingCost(shippingDetails.cost)}
                 </span>
               </div>
             ) : (

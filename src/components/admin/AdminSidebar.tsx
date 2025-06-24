@@ -6,7 +6,8 @@ import {
   Users, 
   CheckCircle,
   Upload,
-  Trash2
+  Trash2,
+  Truck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -39,6 +40,11 @@ const AdminSidebar = () => {
       title: 'Riwayat Pesanan',
       href: '/admin/orders-history',
       icon: ShoppingCart,
+    },
+    {
+      title: 'Pengaturan Ongkir',
+      href: '/admin/shipping-rates',
+      icon: Truck,
     },
     {
       title: 'Manajemen User',

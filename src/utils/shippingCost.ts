@@ -76,19 +76,45 @@ export const shippingRates: ShippingRate[] = [
 // Default ongkir jika prefektur tidak ditemukan
 export const DEFAULT_SHIPPING_COST = 800;
 
-export const calculateShippingCost = (prefecture: string): ShippingRate => {
-  const rate = shippingRates.find(rate => rate.prefecture === prefecture);
-  
-  if (rate) {
-    return rate;
+export const calculateShippingCost = async (prefecture: string): Promise<ShippingRate> => {
+  try {
+    // Import dynamically to avoid circular dependencies
+    const { getShippingRateForPrefecture } = await import('@/services/shippingService');
+    
+    // Try to get rate from database first
+    const dbRate = await getShippingRateForPrefecture(prefecture);
+    if (dbRate) {
+      return dbRate;
+    }
+    
+    // Fallback to static rates if not found in database
+    const staticRate = shippingRates.find(rate => rate.prefecture === prefecture);
+    if (staticRate) {
+      return staticRate;
+    }
+    
+    // Return default if prefecture not found
+    return {
+      prefecture: prefecture || 'Unknown',
+      cost: DEFAULT_SHIPPING_COST,
+      estimatedDays: '3-5 hari'
+    };
+  } catch (error) {
+    console.error('Error calculating shipping cost:', error);
+    
+    // Fallback to static rates if there's an error
+    const staticRate = shippingRates.find(rate => rate.prefecture === prefecture);
+    if (staticRate) {
+      return staticRate;
+    }
+    
+    // Return default if prefecture not found or error occurs
+    return {
+      prefecture: prefecture || 'Unknown',
+      cost: DEFAULT_SHIPPING_COST,
+      estimatedDays: '3-5 hari'
+    };
   }
-  
-  // Return default jika prefektur tidak ditemukan
-  return {
-    prefecture: prefecture || 'Unknown',
-    cost: DEFAULT_SHIPPING_COST,
-    estimatedDays: '3-5 hari'
-  };
 };
 
 export const formatShippingCost = (cost: number): string => {
@@ -101,8 +127,8 @@ export const formatShippingCost = (cost: number): string => {
 
 // Fungsi untuk mendapatkan estimasi pengiriman berdasarkan prefektur
 export const getShippingEstimate = (prefecture: string): string => {
-  const rate = calculateShippingCost(prefecture);
-  return rate.estimatedDays;
+  const rate = shippingRates.find(rate => rate.prefecture === prefecture);
+  return rate?.estimatedDays || '3-5 hari';
 };
 
 // Fungsi untuk validasi apakah ongkir gratis (jika ada promo)
