@@ -195,11 +195,11 @@ const Orders = () => {
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-4">
-                      {/* Order Items Summary */}
+                      {/* Order Items Summary - Show ALL items */}
                       <div>
                         <h4 className="font-medium text-gray-900 mb-3">Ringkasan Pesanan:</h4>
                         <div className="space-y-2">
-                          {order.items.slice(0, 3).map((item, index) => (
+                          {order.items.map((item, index) => (
                             <div key={index} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
                               <div className="flex items-center space-x-3">
                                 <img
@@ -224,11 +224,6 @@ const Orders = () => {
                               </p>
                             </div>
                           ))}
-                          {order.items.length > 3 && (
-                            <p className="text-sm text-gray-500 text-center py-2">
-                              dan {order.items.length - 3} item lainnya...
-                            </p>
-                          )}
                         </div>
                       </div>
 
