@@ -108,7 +108,7 @@ const ProductVariants = ({ category, variants, onChange }: ProductVariantsProps)
               id={`variant-name-${index}`}
               value={variant.name}
               onChange={(e) => updateVariant(index, 'name', e.target.value)}
-              placeholder="Contoh: BASRENG PEDAS 250 GRAM"
+              placeholder="Nama"
               className="mt-1"
             />
             <p className="text-xs text-gray-500 mt-1">
