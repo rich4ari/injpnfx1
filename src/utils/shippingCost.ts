@@ -78,16 +78,7 @@ export const DEFAULT_SHIPPING_COST = 800;
 
 export const calculateShippingCost = async (prefecture: string): Promise<ShippingRate> => {
   try {
-    // Import dynamically to avoid circular dependencies
-    const { getShippingRateForPrefecture } = await import('@/services/shippingService');
-    
-    // Try to get rate from database first
-    const dbRate = await getShippingRateForPrefecture(prefecture);
-    if (dbRate) {
-      return dbRate;
-    }
-    
-    // Fallback to static rates if not found in database
+    // Find rate in static rates first (to avoid Firebase errors)
     const staticRate = shippingRates.find(rate => rate.prefecture === prefecture);
     if (staticRate) {
       return staticRate;

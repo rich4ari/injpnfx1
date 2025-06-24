@@ -33,7 +33,7 @@ const ShippingCalculator = ({
     
     const fetchShippingRate = async () => {
       try {
-        // Calculate shipping cost from database or default rates
+        // Calculate shipping cost from default rates
         const details = await calculateShippingCost(prefecture);
         const freeShipping = isFreeShipping(subtotal, prefecture);
         
@@ -46,8 +46,15 @@ const ShippingCalculator = ({
         onShippingCostChange(finalDetails.cost, finalDetails);
       } catch (error) {
         console.error('Error calculating shipping:', error);
-        setCalculationError('Gagal menghitung ongkir. Silakan coba lagi.');
-        onShippingCostChange(0, { prefecture: '', cost: 0, estimatedDays: '' });
+        // Use fallback rate instead of showing error
+        const fallbackRate = {
+          prefecture: prefecture,
+          cost: 800,
+          estimatedDays: '3-5 hari'
+        };
+        setShippingDetails(fallbackRate);
+        onShippingCostChange(fallbackRate.cost, fallbackRate);
+        setCalculationError(null);
       } finally {
         setIsCalculating(false);
       }

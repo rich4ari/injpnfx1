@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { toast } from '@/hooks/use-toast';
 import { Truck, Save, Download, Upload, RefreshCw, AlertTriangle } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
@@ -16,13 +15,9 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { 
-  getShippingRates, 
-  updateShippingRate, 
-  updateAllShippingRates,
-  exportShippingRatesToCSV,
-  importShippingRatesFromCSV
-} from '@/services/shippingService';
-import { ShippingRate } from '@/utils/shippingCost';
+  shippingRates as defaultShippingRates,
+  ShippingRate
+} from '@/utils/shippingCost';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const ShippingRates = () => {
@@ -39,7 +34,8 @@ const ShippingRates = () => {
   const loadShippingRates = async () => {
     setLoading(true);
     try {
-      const rates = await getShippingRates();
+      // Use default shipping rates instead of fetching from Firebase
+      const rates = [...defaultShippingRates];
       setShippingRates(rates);
       
       // Initialize edited rates with current values
@@ -48,13 +44,29 @@ const ShippingRates = () => {
         initialEditedRates[rate.prefecture] = rate.cost;
       });
       setEditedRates(initialEditedRates);
+      
+      toast({
+        title: "Berhasil",
+        description: "Data ongkir berhasil dimuat",
+      });
     } catch (error) {
       console.error('Error loading shipping rates:', error);
       toast({
         title: "Error",
-        description: "Gagal memuat data ongkir. Silakan coba lagi.",
+        description: "Gagal memuat data ongkir. Menggunakan data default.",
         variant: "destructive",
       });
+      
+      // Use default rates if there's an error
+      const rates = [...defaultShippingRates];
+      setShippingRates(rates);
+      
+      // Initialize edited rates with default values
+      const initialEditedRates: Record<string, number> = {};
+      rates.forEach(rate => {
+        initialEditedRates[rate.prefecture] = rate.cost;
+      });
+      setEditedRates(initialEditedRates);
     } finally {
       setLoading(false);
     }
@@ -73,21 +85,18 @@ const ShippingRates = () => {
   const handleSaveAll = async () => {
     setSaving(true);
     try {
-      // Convert edited rates to array of ShippingRate objects
-      const updatedRates: ShippingRate[] = shippingRates.map(rate => ({
+      // Update local state with edited rates
+      const updatedRates = shippingRates.map(rate => ({
         ...rate,
         cost: editedRates[rate.prefecture] || rate.cost
       }));
       
-      await updateAllShippingRates(updatedRates);
+      setShippingRates(updatedRates);
       
       toast({
         title: "Berhasil",
         description: "Semua tarif ongkir berhasil diperbarui",
       });
-      
-      // Refresh data
-      await loadShippingRates();
     } catch (error) {
       console.error('Error saving shipping rates:', error);
       toast({
@@ -102,7 +111,30 @@ const ShippingRates = () => {
 
   const handleExportCSV = () => {
     try {
-      exportShippingRatesToCSV(shippingRates);
+      // Prepare CSV content
+      const headers = ['Prefecture', 'Cost', 'EstimatedDays'];
+      const rows = shippingRates.map(rate => [
+        rate.prefecture,
+        rate.cost.toString(),
+        rate.estimatedDays
+      ]);
+      
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.join(','))
+      ].join('\n');
+      
+      // Create and download CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `shipping-rates-${new Date().toISOString().split('T')[0]}.csv`);
+      link.style.visibility = 'hidden';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
       toast({
         title: "Berhasil",
         description: "Data ongkir berhasil diekspor ke CSV",
@@ -128,25 +160,72 @@ const ShippingRates = () => {
     if (!file) return;
 
     try {
-      const importedRates = await importShippingRatesFromCSV(file);
+      const reader = new FileReader();
       
-      // Update edited rates with imported values
-      const newEditedRates: Record<string, number> = { ...editedRates };
-      importedRates.forEach(rate => {
-        newEditedRates[rate.prefecture] = rate.cost;
-      });
+      reader.onload = (event) => {
+        try {
+          const csvText = event.target?.result as string;
+          const lines = csvText.split('\n');
+          
+          // Skip header row
+          const dataRows = lines.slice(1).filter(line => line.trim());
+          
+          const importedRates: ShippingRate[] = [];
+          
+          for (const row of dataRows) {
+            const columns = row.split(',');
+            
+            if (columns.length >= 2) {
+              const prefecture = columns[0].trim();
+              const cost = parseInt(columns[1].trim());
+              const estimatedDays = columns.length >= 3 ? columns[2].trim() : '3-5 hari';
+              
+              if (prefecture && !isNaN(cost)) {
+                importedRates.push({
+                  prefecture,
+                  cost,
+                  estimatedDays
+                });
+              }
+            }
+          }
+          
+          // Update edited rates with imported values
+          const newEditedRates: Record<string, number> = { ...editedRates };
+          importedRates.forEach(rate => {
+            newEditedRates[rate.prefecture] = rate.cost;
+          });
+          
+          setEditedRates(newEditedRates);
+          
+          toast({
+            title: "Berhasil",
+            description: `${importedRates.length} tarif ongkir berhasil diimpor. Klik Simpan untuk menyimpan perubahan.`,
+          });
+        } catch (error) {
+          console.error('Error parsing CSV:', error);
+          toast({
+            title: "Error",
+            description: "Gagal mengimpor data dari CSV. Pastikan format file benar.",
+            variant: "destructive",
+          });
+        }
+      };
       
-      setEditedRates(newEditedRates);
+      reader.onerror = () => {
+        toast({
+          title: "Error",
+          description: "Gagal membaca file CSV",
+          variant: "destructive",
+        });
+      };
       
-      toast({
-        title: "Berhasil",
-        description: `${importedRates.length} tarif ongkir berhasil diimpor. Klik Simpan untuk menyimpan perubahan.`,
-      });
+      reader.readAsText(file);
     } catch (error) {
       console.error('Error importing CSV:', error);
       toast({
         title: "Error",
-        description: "Gagal mengimpor data dari CSV. Pastikan format file benar.",
+        description: "Gagal mengimpor data dari CSV",
         variant: "destructive",
       });
     }

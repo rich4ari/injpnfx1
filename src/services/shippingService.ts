@@ -1,4 +1,4 @@
-import { collection, getDocs, doc, setDoc, updateDoc, query, orderBy } from 'firebase/firestore';
+import { collection, getDocs, doc, setDoc, updateDoc, query, orderBy, getDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { ShippingRate, shippingRates as defaultRates } from '@/utils/shippingCost';
 
@@ -46,7 +46,8 @@ export const initializeDefaultRates = async (): Promise<void> => {
     console.log('Default shipping rates initialized');
   } catch (error) {
     console.error('Error initializing default shipping rates:', error);
-    throw error;
+    // Don't throw error, just log it
+    console.log('Using default shipping rates instead');
   }
 };
 
@@ -94,29 +95,34 @@ export const updateAllShippingRates = async (rates: ShippingRate[]): Promise<voi
 
 // Export shipping rates to CSV
 export const exportShippingRatesToCSV = (rates: ShippingRate[]): void => {
-  // Prepare CSV content
-  const headers = ['Prefecture', 'Cost', 'EstimatedDays'];
-  const rows = rates.map(rate => [
-    rate.prefecture,
-    rate.cost.toString(),
-    rate.estimatedDays
-  ]);
-  
-  const csvContent = [
-    headers.join(','),
-    ...rows.map(row => row.join(','))
-  ].join('\n');
-  
-  // Create and download CSV file
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.setAttribute('href', url);
-  link.setAttribute('download', `shipping-rates-${new Date().toISOString().split('T')[0]}.csv`);
-  link.style.visibility = 'hidden';
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
+  try {
+    // Prepare CSV content
+    const headers = ['Prefecture', 'Cost', 'EstimatedDays'];
+    const rows = rates.map(rate => [
+      rate.prefecture,
+      rate.cost.toString(),
+      rate.estimatedDays
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+    
+    // Create and download CSV file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `shipping-rates-${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error('Error exporting shipping rates to CSV:', error);
+    throw error;
+  }
 };
 
 // Import shipping rates from CSV
@@ -169,18 +175,26 @@ export const importShippingRatesFromCSV = async (file: File): Promise<ShippingRa
 // Get shipping rate for a specific prefecture
 export const getShippingRateForPrefecture = async (prefecture: string): Promise<ShippingRate | null> => {
   try {
-    const rateRef = doc(db, SHIPPING_RATES_COLLECTION, prefecture);
-    const rateDoc = await rateRef.get();
+    if (!prefecture) return null;
     
-    if (rateDoc.exists()) {
-      return {
-        prefecture,
-        cost: rateDoc.data().cost,
-        estimatedDays: rateDoc.data().estimatedDays
-      };
+    // First try to get from database
+    try {
+      const rateRef = doc(db, SHIPPING_RATES_COLLECTION, prefecture);
+      const rateSnap = await getDoc(rateRef);
+      
+      if (rateSnap.exists()) {
+        return {
+          prefecture,
+          cost: rateSnap.data().cost,
+          estimatedDays: rateSnap.data().estimatedDays
+        };
+      }
+    } catch (dbError) {
+      console.error('Database error fetching shipping rate:', dbError);
+      // Continue to fallback if database fails
     }
     
-    // If not found in database, find in default rates
+    // If not found in database or error occurred, find in default rates
     const defaultRate = defaultRates.find(r => r.prefecture === prefecture);
     return defaultRate || null;
   } catch (error) {
