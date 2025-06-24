@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
-import { Truck, Save, Download, Upload, RefreshCw, AlertTriangle } from 'lucide-react';
+import { Truck, Save, Download, Upload, AlertTriangle } from 'lucide-react';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { prefectures } from '@/data/prefectures';
 import { 
