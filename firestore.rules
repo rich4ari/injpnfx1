@@ -27,5 +27,11 @@ service cloud.firestore {
     match /admin_logs/{logId} {
       allow read, write, create, update, delete: if request.auth != null;
     }
+
+    // Allow authenticated users to manage shipping rates
+    match /shipping_rates/{prefecture} {
+      allow read: if true;
+      allow write, create, update, delete: if request.auth != null;
+    }
   }
 }
