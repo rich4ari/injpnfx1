@@ -28,7 +28,7 @@ service cloud.firestore {
       allow read, write, create, update, delete: if request.auth != null;
     }
 
-    // Allow authenticated users to manage shipping rates
+    // Allow everyone to read shipping rates, but only authenticated users to write
     match /shipping_rates/{prefecture} {
       allow read: if true;
       allow write, create, update, delete: if request.auth != null;
