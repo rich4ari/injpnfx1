@@ -16,6 +16,11 @@ const Invoice = ({ order, invoiceNumber }: InvoiceProps) => {
     });
   };
 
+  // Extract shipping information from customer_info
+  const shippingCost = order.customer_info?.shippingCost || 0;
+  const shippingDetails = order.customer_info?.shippingDetails;
+  const subtotal = order.total_price - shippingCost;
+
   return (
     <div className="max-w-4xl mx-auto bg-white p-8 shadow-lg" id="invoice-content">
       {/* Header */}
@@ -160,12 +165,21 @@ const Invoice = ({ order, invoiceNumber }: InvoiceProps) => {
           <div className="bg-gray-50 p-6 rounded-lg border">
             <div className="space-y-3">
               <div className="flex justify-between text-lg">
-                <span className="font-medium">Subtotal:</span>
-                <span>{formatPrice(order.total_price)}</span>
+                <span className="font-medium">Subtotal Produk:</span>
+                <span>{formatPrice(subtotal)}</span>
               </div>
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>Ongkos Kirim:</span>
-                <span>Akan dikonfirmasi</span>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">
+                  Ongkir ke {order.customer_info.prefecture}:
+                  {shippingDetails?.estimatedDays && (
+                    <div className="text-xs text-gray-500">
+                      Estimasi: {shippingDetails.estimatedDays}
+                    </div>
+                  )}
+                </span>
+                <span className={shippingCost === 0 ? 'text-green-600 font-medium' : ''}>
+                  {shippingCost === 0 ? 'GRATIS' : formatPrice(shippingCost)}
+                </span>
               </div>
               <div className="border-t pt-3">
                 <div className="flex justify-between text-xl font-bold text-red-600">
@@ -196,6 +210,18 @@ const Invoice = ({ order, invoiceNumber }: InvoiceProps) => {
               </p>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Shipping Information */}
+      {shippingDetails && (
+        <div className="mb-8 bg-blue-50 p-4 rounded-lg border border-blue-200">
+          <h4 className="font-medium text-blue-800 mb-2">Informasi Pengiriman:</h4>
+          <div className="text-blue-700 text-sm space-y-1">
+            <p>Tujuan: {order.customer_info.prefecture}</p>
+            <p>Estimasi waktu: {shippingDetails.estimatedDays}</p>
+            <p>Biaya pengiriman: {shippingCost === 0 ? 'GRATIS' : formatPrice(shippingCost)}</p>
+          </div>
         </div>
       )}
 

@@ -5,8 +5,9 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Order } from '@/types';
 import { useOrderOperations } from '@/hooks/useOrderOperations';
-import { CheckCircle, XCircle, Clock, User, Mail, Phone, MapPin, Package, FileText } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, User, Mail, Phone, MapPin, Package, FileText, Truck } from 'lucide-react';
 import InvoiceModal from '@/components/InvoiceModal';
+import { formatPrice } from '@/utils/cart';
 
 interface OrderConfirmationProps {
   order: Order;
@@ -43,6 +44,11 @@ const OrderConfirmation = ({ order }: OrderConfirmationProps) => {
       </Badge>
     );
   };
+
+  // Extract shipping information
+  const shippingCost = order.customer_info?.shippingCost || 0;
+  const shippingDetails = order.customer_info?.shippingDetails;
+  const subtotal = order.total_price - shippingCost;
 
   return (
     <>
@@ -137,12 +143,56 @@ const OrderConfirmation = ({ order }: OrderConfirmationProps) => {
 
           <Separator />
 
+          {/* Shipping Information */}
+          {shippingDetails && (
+            <div>
+              <h4 className="font-semibold mb-3 flex items-center">
+                <Truck className="w-4 h-4 mr-2" />
+                Informasi Pengiriman
+              </h4>
+              <div className="p-3 bg-blue-50 rounded-md">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                  <div>
+                    <span className="font-medium text-blue-800">Tujuan:</span>
+                    <span className="ml-2 text-blue-700">{order.customer_info.prefecture}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-blue-800">Estimasi:</span>
+                    <span className="ml-2 text-blue-700">{shippingDetails.estimatedDays}</span>
+                  </div>
+                  <div>
+                    <span className="font-medium text-blue-800">Ongkir:</span>
+                    <span className="ml-2 text-blue-700">
+                      {shippingCost === 0 ? 'GRATIS' : formatPrice(shippingCost)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Order Total */}
-          <div className="flex justify-between items-center bg-primary/5 p-4 rounded-md">
-            <span className="font-semibold">Total Pesanan:</span>
-            <span className="text-xl font-bold text-primary">
-              ¥{order.total_price.toLocaleString()}
-            </span>
+          <div className="bg-primary/5 p-4 rounded-md space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Subtotal Produk:</span>
+              <span className="font-semibold">
+                {formatPrice(subtotal)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Ongkir:</span>
+              <span className={`font-semibold ${shippingCost === 0 ? 'text-green-600' : ''}`}>
+                {shippingCost === 0 ? 'GRATIS' : formatPrice(shippingCost)}
+              </span>
+            </div>
+            <div className="border-t pt-2 mt-2">
+              <div className="flex justify-between items-center">
+                <span className="font-semibold text-lg">Total Pesanan:</span>
+                <span className="text-xl font-bold text-primary">
+                  {formatPrice(order.total_price)}
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Action Buttons */}

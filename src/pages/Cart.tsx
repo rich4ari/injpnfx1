@@ -1,4 +1,3 @@
-
 import { Link } from 'react-router-dom';
 import { Minus, Plus, Trash2, ShoppingBag } from 'lucide-react';
 import { useCart } from '@/hooks/useCart';
@@ -166,11 +165,8 @@ const Cart = () => {
                       <span className="text-lg">Subtotal ({cart.reduce((sum, item) => sum + item.quantity, 0)} item)</span>
                       <span className="text-lg font-semibold text-gray-800">¥{total.toLocaleString()}</span>
                     </div>
-                    <div className="border-t border-gray-200 pt-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-2xl font-bold text-gray-800">Total Belanja</span>
-                        <span className="text-2xl font-bold text-primary">¥{total.toLocaleString()}</span>
-                      </div>
+                    <div className="text-sm text-gray-500">
+                      * Biaya pengiriman akan dihitung setelah Anda mengisi alamat pengiriman
                     </div>
                   </div>
                 </div>

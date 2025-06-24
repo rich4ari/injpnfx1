@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -14,6 +14,9 @@ import { toast } from '@/hooks/use-toast';
 import { useCreateOrder } from '@/hooks/useOrders';
 import { useAuth } from '@/hooks/useFirebaseAuth';
 import InvoiceModal from '@/components/InvoiceModal';
+import ShippingCalculator from '@/components/ShippingCalculator';
+import CheckoutSummary from '@/components/CheckoutSummary';
+import { ShippingRate } from '@/utils/shippingCost';
 
 const checkoutSchema = z.object({
   fullName: z.string().min(2, 'Nama lengkap harus minimal 2 karakter'),
@@ -38,6 +41,8 @@ const CheckoutForm = ({ cart, total, onOrderComplete }: CheckoutFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showInvoice, setShowInvoice] = useState(false);
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const [shippingCost, setShippingCost] = useState(0);
+  const [shippingDetails, setShippingDetails] = useState<ShippingRate | null>(null);
   const { user } = useAuth();
   const createOrder = useCreateOrder();
 
@@ -55,6 +60,15 @@ const CheckoutForm = ({ cart, total, onOrderComplete }: CheckoutFormProps) => {
     },
   });
 
+  const watchedPrefecture = form.watch('prefecture');
+  const subtotal = total;
+  const finalTotal = subtotal + shippingCost;
+
+  const handleShippingCostChange = (cost: number, details: ShippingRate) => {
+    setShippingCost(cost);
+    setShippingDetails(details);
+  };
+
   const generateWhatsAppMessage = (data: CheckoutFormData) => {
     const productList = cart.map(item => {
       const variants = item.selectedVariants 
@@ -63,6 +77,10 @@ const CheckoutForm = ({ cart, total, onOrderComplete }: CheckoutFormProps) => {
       
       return `- ${item.name}${variants ? ` | Varian: ${variants}` : ''} | Qty: ${item.quantity} | ¥${(item.price * item.quantity).toLocaleString()}`;
     }).join('\n');
+
+    const shippingInfo = shippingDetails ? 
+      `Ongkir ke ${shippingDetails.prefecture}: ${shippingCost === 0 ? 'GRATIS' : `¥${shippingCost.toLocaleString()}`}` :
+      'Ongkir: Belum dihitung';
 
     const message = `Halo Admin Injapan Food
 
@@ -80,7 +98,12 @@ Alamat lengkap: ${data.address}
 *DAFTAR PRODUK:*
 ${productList}
 
-*TOTAL BELANJA: ¥${total.toLocaleString()}*
+*RINCIAN PEMBAYARAN:*
+Subtotal produk: ¥${subtotal.toLocaleString()}
+${shippingInfo}
+${shippingDetails?.estimatedDays ? `Estimasi pengiriman: ${shippingDetails.estimatedDays}` : ''}
+
+*TOTAL BELANJA: ¥${finalTotal.toLocaleString()}*
 
 ${data.notes ? `Catatan: ${data.notes}` : ''}
 
@@ -99,6 +122,15 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
       return;
     }
 
+    if (!shippingDetails) {
+      toast({
+        title: "Ongkir Belum Dihitung",
+        description: "Silakan pastikan alamat lengkap sudah diisi untuk menghitung ongkir.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -111,7 +143,10 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
           image_url: item.image_url,
           selectedVariants: item.selectedVariants || {}
         })),
-        totalPrice: total,
+        totalPrice: finalTotal,
+        subtotal: subtotal,
+        shippingCost: shippingCost,
+        shippingDetails: shippingDetails,
         customerInfo: {
           name: data.fullName,
           email: data.email,
@@ -138,7 +173,11 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
         user_id: user?.uid || '',
         items: orderData.items,
         total_price: orderData.totalPrice,
-        customer_info: orderData.customerInfo,
+        customer_info: {
+          ...orderData.customerInfo,
+          shippingCost: shippingCost,
+          shippingDetails: shippingDetails
+        },
         status: 'pending',
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -190,76 +229,123 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-xl font-semibold mb-6 text-gray-800">Informasi Pengiriman</h2>
-      
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="fullName"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nama Lengkap Penerima *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="Masukkan nama lengkap" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+    <div className="space-y-6">
+      {/* Shipping Calculator */}
+      <ShippingCalculator
+        prefecture={watchedPrefecture}
+        subtotal={subtotal}
+        onShippingCostChange={handleShippingCostChange}
+      />
 
-            <FormField
-              control={form.control}
-              name="whatsapp"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Nomor WhatsApp/Telepon *</FormLabel>
-                  <FormControl>
-                    <Input placeholder="081234567890" {...field} />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
+      {/* Checkout Summary */}
+      <CheckoutSummary
+        cart={cart}
+        subtotal={subtotal}
+        shippingCost={shippingCost}
+        shippingDetails={shippingDetails}
+        total={finalTotal}
+      />
 
-          <FormField
-            control={form.control}
-            name="email"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Email *</FormLabel>
-                <FormControl>
-                  <Input type="email" placeholder="contoh@email.com" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="prefecture"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Prefektur *</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+      {/* Checkout Form */}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        <h2 className="text-xl font-semibold mb-6 text-gray-800">Informasi Pengiriman</h2>
+        
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="fullName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nama Lengkap Penerima *</FormLabel>
                     <FormControl>
-                      <SelectTrigger className="bg-white">
-                        <SelectValue placeholder="Pilih prefektur" />
-                      </SelectTrigger>
+                      <Input placeholder="Masukkan nama lengkap" {...field} />
                     </FormControl>
-                    <SelectContent className="bg-white border shadow-lg max-h-60 z-50">
-                      {prefectures.map((prefecture) => (
-                        <SelectItem key={prefecture.name} value={prefecture.name}>
-                          {prefecture.name} ({prefecture.name_en})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="whatsapp"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Nomor WhatsApp/Telepon *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="081234567890" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email *</FormLabel>
+                  <FormControl>
+                    <Input type="email" placeholder="contoh@email.com" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="prefecture"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Prefektur *</FormLabel>
+                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                      <FormControl>
+                        <SelectTrigger className="bg-white">
+                          <SelectValue placeholder="Pilih prefektur" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent className="bg-white border shadow-lg max-h-60 z-50">
+                        {prefectures.map((prefecture) => (
+                          <SelectItem key={prefecture.name} value={prefecture.name}>
+                            {prefecture.name} ({prefecture.name_en})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Area/Kota/Cho/Machi *</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Contoh: Shibuya-ku, Harajuku" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            <FormField
+              control={form.control}
+              name="postalCode"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Kode Pos *</FormLabel>
+                  <FormControl>
+                    <Input placeholder="1234567" maxLength={7} {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -267,86 +353,58 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
 
             <FormField
               control={form.control}
-              name="city"
+              name="address"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Area/Kota/Cho/Machi *</FormLabel>
+                  <FormLabel>Alamat Lengkap *</FormLabel>
                   <FormControl>
-                    <Input placeholder="Contoh: Shibuya-ku, Harajuku" {...field} />
+                    <Textarea
+                      placeholder="Masukkan alamat lengkap termasuk nomor rumah, nama jalan, dll."
+                      rows={3}
+                      {...field}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          </div>
 
-          <FormField
-            control={form.control}
-            name="postalCode"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Kode Pos *</FormLabel>
-                <FormControl>
-                  <Input placeholder="1234567" maxLength={7} {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <FormField
+              control={form.control}
+              name="notes"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Catatan Pesanan (Opsional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      placeholder="Tambahkan catatan khusus untuk pesanan Anda..."
+                      rows={2}
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
 
-          <FormField
-            control={form.control}
-            name="address"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Alamat Lengkap *</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Masukkan alamat lengkap termasuk nomor rumah, nama jalan, dll."
-                    rows={3}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="notes"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Catatan Pesanan (Opsional)</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="Tambahkan catatan khusus untuk pesanan Anda..."
-                    rows={2}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <div className="pt-4 border-t">
-            <Button
-              type="submit"
-              disabled={isSubmitting || cart.length === 0}
-              className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-lg font-semibold flex items-center justify-center space-x-2"
-            >
-              <MessageCircle className="w-5 h-5" />
-              <span>
-                {isSubmitting ? 'Memproses...' : 'Pesan via WhatsApp'}
-              </span>
-            </Button>
-            <p className="text-center text-sm text-gray-600 mt-2">
-              Pesanan akan disimpan di riwayat Anda dan dikirim ke WhatsApp
-            </p>
-          </div>
-        </form>
-      </Form>
+            <div className="pt-4 border-t">
+              <Button
+                type="submit"
+                disabled={isSubmitting || cart.length === 0 || !shippingDetails}
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-lg font-semibold flex items-center justify-center space-x-2"
+              >
+                <MessageCircle className="w-5 h-5" />
+                <span>
+                  {isSubmitting ? 'Memproses...' : `Pesan via WhatsApp (${finalTotal.toLocaleString()} Yen)`}
+                </span>
+              </Button>
+              <p className="text-center text-sm text-gray-600 mt-2">
+                Pesanan akan disimpan di riwayat Anda dan dikirim ke WhatsApp
+              </p>
+            </div>
+          </form>
+        </Form>
+      </div>
 
       {/* Invoice Modal */}
       {showInvoice && createdOrder && (

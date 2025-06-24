@@ -104,9 +104,13 @@ export const createOrder = async (orderData: {
     address: string;
     phone: string;
     notes?: string;
+    shippingCost?: number;
+    shippingDetails?: any;
   };
   items: any[];
   total_price: number;
+  subtotal?: number;
+  shippingCost?: number;
   status?: string;
 }) => {
   try {
@@ -118,6 +122,8 @@ export const createOrder = async (orderData: {
       customer_info: orderData.customer_info,
       items: orderData.items,
       total_price: orderData.total_price,
+      subtotal: orderData.subtotal || orderData.total_price,
+      shipping_cost: orderData.shippingCost || 0,
       status: orderData.status || 'pending',
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()

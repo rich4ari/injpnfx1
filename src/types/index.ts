@@ -39,6 +39,7 @@ export interface Order {
   customer_info: CustomerInfo;
   referralTransaction?: any;
   invoice_number?: string;
+  shipping_cost?: number; // Added for shipping cost
 }
 
 export interface OrderItem {
@@ -59,6 +60,8 @@ export interface CustomerInfo {
   postal_code?: string;
   city?: string;
   notes?: string;
+  shippingCost?: number; // Added for shipping cost
+  shippingDetails?: any; // Added for shipping details
 }
 
 export interface ShippingAddress {
@@ -163,4 +166,11 @@ export interface OrderTracking {
   total_amount?: number;
   items?: any[];
   created_at?: string;
+}
+
+// Shipping interface
+export interface Shipping {
+  prefecture: string;
+  cost: number;
+  estimatedDays: string;
 }
