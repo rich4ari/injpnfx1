@@ -14,63 +14,24 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
-import { 
-  shippingRates as defaultShippingRates,
-  ShippingRate
-} from '@/utils/shippingCost';
+import { ShippingRate } from '@/utils/shippingCost';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useShippingRates } from '@/hooks/useShippingRates';
 
 const ShippingRates = () => {
-  const [shippingRates, setShippingRates] = useState<ShippingRate[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { rates, loading, updateShippingRate, updateAllShippingRates } = useShippingRates();
   const [saving, setSaving] = useState(false);
   const [editedRates, setEditedRates] = useState<Record<string, number>>({});
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    loadShippingRates();
-  }, []);
-
-  const loadShippingRates = async () => {
-    setLoading(true);
-    try {
-      // Use default shipping rates instead of fetching from Firebase
-      const rates = [...defaultShippingRates];
-      setShippingRates(rates);
-      
-      // Initialize edited rates with current values
-      const initialEditedRates: Record<string, number> = {};
-      rates.forEach(rate => {
-        initialEditedRates[rate.prefecture] = rate.cost;
-      });
-      setEditedRates(initialEditedRates);
-      
-      toast({
-        title: "Berhasil",
-        description: "Data ongkir berhasil dimuat",
-      });
-    } catch (error) {
-      console.error('Error loading shipping rates:', error);
-      toast({
-        title: "Error",
-        description: "Gagal memuat data ongkir. Menggunakan data default.",
-        variant: "destructive",
-      });
-      
-      // Use default rates if there's an error
-      const rates = [...defaultShippingRates];
-      setShippingRates(rates);
-      
-      // Initialize edited rates with default values
-      const initialEditedRates: Record<string, number> = {};
-      rates.forEach(rate => {
-        initialEditedRates[rate.prefecture] = rate.cost;
-      });
-      setEditedRates(initialEditedRates);
-    } finally {
-      setLoading(false);
-    }
-  };
+    // Initialize edited rates with current values
+    const initialEditedRates: Record<string, number> = {};
+    rates.forEach(rate => {
+      initialEditedRates[rate.prefecture] = rate.cost;
+    });
+    setEditedRates(initialEditedRates);
+  }, [rates]);
 
   const handleRateChange = (prefecture: string, value: string) => {
     const cost = parseInt(value);
@@ -85,18 +46,27 @@ const ShippingRates = () => {
   const handleSaveAll = async () => {
     setSaving(true);
     try {
-      // Update local state with edited rates
-      const updatedRates = shippingRates.map(rate => ({
-        ...rate,
-        cost: editedRates[rate.prefecture] || rate.cost
-      }));
-      
-      setShippingRates(updatedRates);
-      
-      toast({
-        title: "Berhasil",
-        description: "Semua tarif ongkir berhasil diperbarui",
+      // Create array of updated rates
+      const updatedRates = prefectures.map(prefecture => {
+        const existingRate = rates.find(r => r.prefecture === prefecture.name);
+        const editedCost = editedRates[prefecture.name];
+        
+        return {
+          prefecture: prefecture.name,
+          cost: editedCost !== undefined ? editedCost : (existingRate?.cost || 800),
+          estimatedDays: existingRate?.estimatedDays || '3-5 hari'
+        };
       });
+      
+      // Update all rates in Firebase
+      const success = await updateAllShippingRates(updatedRates);
+      
+      if (success) {
+        toast({
+          title: "Berhasil",
+          description: "Semua tarif ongkir berhasil diperbarui",
+        });
+      }
     } catch (error) {
       console.error('Error saving shipping rates:', error);
       toast({
@@ -113,7 +83,7 @@ const ShippingRates = () => {
     try {
       // Prepare CSV content
       const headers = ['Prefecture', 'Cost', 'EstimatedDays'];
-      const rows = shippingRates.map(rate => [
+      const rows = rates.map(rate => [
         rate.prefecture,
         rate.cost.toString(),
         rate.estimatedDays
@@ -170,7 +140,7 @@ const ShippingRates = () => {
           // Skip header row
           const dataRows = lines.slice(1).filter(line => line.trim());
           
-          const importedRates: ShippingRate[] = [];
+          const importedRates: Record<string, number> = {};
           
           for (const row of dataRows) {
             const columns = row.split(',');
@@ -178,29 +148,22 @@ const ShippingRates = () => {
             if (columns.length >= 2) {
               const prefecture = columns[0].trim();
               const cost = parseInt(columns[1].trim());
-              const estimatedDays = columns.length >= 3 ? columns[2].trim() : '3-5 hari';
               
               if (prefecture && !isNaN(cost)) {
-                importedRates.push({
-                  prefecture,
-                  cost,
-                  estimatedDays
-                });
+                importedRates[prefecture] = cost;
               }
             }
           }
           
           // Update edited rates with imported values
-          const newEditedRates: Record<string, number> = { ...editedRates };
-          importedRates.forEach(rate => {
-            newEditedRates[rate.prefecture] = rate.cost;
-          });
-          
-          setEditedRates(newEditedRates);
+          setEditedRates(prev => ({
+            ...prev,
+            ...importedRates
+          }));
           
           toast({
             title: "Berhasil",
-            description: `${importedRates.length} tarif ongkir berhasil diimpor. Klik Simpan untuk menyimpan perubahan.`,
+            description: `${Object.keys(importedRates).length} tarif ongkir berhasil diimpor. Klik Simpan untuk menyimpan perubahan.`,
           });
         } catch (error) {
           console.error('Error parsing CSV:', error);
@@ -237,7 +200,7 @@ const ShippingRates = () => {
   };
 
   const hasChanges = () => {
-    return shippingRates.some(rate => editedRates[rate.prefecture] !== rate.cost);
+    return rates.some(rate => editedRates[rate.prefecture] !== rate.cost);
   };
 
   return (
@@ -252,14 +215,6 @@ const ShippingRates = () => {
             </div>
           </div>
           <div className="flex space-x-2">
-            <Button
-              variant="outline"
-              onClick={loadShippingRates}
-              disabled={loading}
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
             <Button
               variant="outline"
               onClick={handleExportCSV}
@@ -320,8 +275,8 @@ const ShippingRates = () => {
                     </TableHeader>
                     <TableBody>
                       {prefectures.map((prefecture) => {
-                        const rate = shippingRates.find(r => r.prefecture === prefecture.name);
-                        const currentCost = rate?.cost || 0;
+                        const rate = rates.find(r => r.prefecture === prefecture.name);
+                        const currentCost = rate?.cost || 800;
                         const editedCost = editedRates[prefecture.name];
                         const isChanged = editedCost !== undefined && editedCost !== currentCost;
                         
@@ -345,10 +300,6 @@ const ShippingRates = () => {
                               <Input
                                 type="text"
                                 value={rate?.estimatedDays || '3-5 hari'}
-                                onChange={(e) => {
-                                  // This would need additional state management for editing estimated days
-                                  // For now, we're keeping it simple
-                                }}
                                 className="w-32"
                                 disabled
                               />

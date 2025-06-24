@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Truck, Clock, Gift } from 'lucide-react';
-import { calculateShippingCost, formatShippingCost, isFreeShipping, ShippingRate } from '@/utils/shippingCost';
+import { formatShippingCost, isFreeShipping, ShippingRate } from '@/utils/shippingCost';
+import { useShippingRates } from '@/hooks/useShippingRates';
 
 interface ShippingCalculatorProps {
   prefecture: string;
@@ -20,9 +21,10 @@ const ShippingCalculator = ({
   const [shippingDetails, setShippingDetails] = useState<ShippingRate | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [calculationError, setCalculationError] = useState<string | null>(null);
+  const { rates, loading, error, getShippingRate } = useShippingRates();
 
   useEffect(() => {
-    if (!prefecture) {
+    if (!prefecture || loading) {
       setShippingDetails(null);
       onShippingCostChange(0, { prefecture: '', cost: 0, estimatedDays: '' });
       return;
@@ -31,22 +33,22 @@ const ShippingCalculator = ({
     setIsCalculating(true);
     setCalculationError(null);
     
-    const fetchShippingRate = async () => {
-      try {
-        // Calculate shipping cost from default rates
-        const details = await calculateShippingCost(prefecture);
+    try {
+      // Get shipping rate from the real-time rates
+      const rateDetails = getShippingRate(prefecture);
+      
+      if (rateDetails) {
         const freeShipping = isFreeShipping(subtotal, prefecture);
         
         const finalDetails = {
-          ...details,
-          cost: freeShipping ? 0 : details.cost
+          ...rateDetails,
+          cost: freeShipping ? 0 : rateDetails.cost
         };
         
         setShippingDetails(finalDetails);
         onShippingCostChange(finalDetails.cost, finalDetails);
-      } catch (error) {
-        console.error('Error calculating shipping:', error);
-        // Use fallback rate instead of showing error
+      } else {
+        // Fallback rate if prefecture not found
         const fallbackRate = {
           prefecture: prefecture,
           cost: 800,
@@ -54,14 +56,22 @@ const ShippingCalculator = ({
         };
         setShippingDetails(fallbackRate);
         onShippingCostChange(fallbackRate.cost, fallbackRate);
-        setCalculationError(null);
-      } finally {
-        setIsCalculating(false);
       }
-    };
-
-    fetchShippingRate();
-  }, [prefecture, subtotal, onShippingCostChange]);
+    } catch (error) {
+      console.error('Error calculating shipping:', error);
+      // Use fallback rate instead of showing error
+      const fallbackRate = {
+        prefecture: prefecture,
+        cost: 800,
+        estimatedDays: '3-5 hari'
+      };
+      setShippingDetails(fallbackRate);
+      onShippingCostChange(fallbackRate.cost, fallbackRate);
+      setCalculationError(null);
+    } finally {
+      setIsCalculating(false);
+    }
+  }, [prefecture, subtotal, rates, loading, onShippingCostChange, getShippingRate]);
 
   if (!prefecture) {
     return (
@@ -76,7 +86,7 @@ const ShippingCalculator = ({
     );
   }
 
-  if (isCalculating) {
+  if (isCalculating || loading) {
     return (
       <Card className={className}>
         <CardContent className="py-6 text-center">
