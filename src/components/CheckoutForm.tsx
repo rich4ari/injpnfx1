@@ -146,7 +146,6 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
         totalPrice: finalTotal,
         subtotal: subtotal,
         shippingCost: shippingCost,
-        shippingDetails: shippingDetails,
         customerInfo: {
           name: data.fullName,
           email: data.email,
@@ -155,7 +154,9 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
           city: data.city,
           postal_code: data.postalCode,
           address: data.address,
-          notes: data.notes
+          notes: data.notes,
+          shippingCost: shippingCost,
+          shippingDetails: shippingDetails
         },
         userId: user?.uid
       };
@@ -163,6 +164,8 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
       const result = await createOrder.mutateAsync({
         items: orderData.items,
         totalPrice: orderData.totalPrice,
+        subtotal: orderData.subtotal,
+        shippingCost: orderData.shippingCost,
         customerInfo: orderData.customerInfo,
         userId: orderData.userId
       });
@@ -173,6 +176,7 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
         user_id: user?.uid || '',
         items: orderData.items,
         total_price: orderData.totalPrice,
+        shipping_cost: shippingCost,
         customer_info: {
           ...orderData.customerInfo,
           shippingCost: shippingCost,

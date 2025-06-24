@@ -19,6 +19,7 @@ const ShippingCalculator = ({
 }: ShippingCalculatorProps) => {
   const [shippingDetails, setShippingDetails] = useState<ShippingRate | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [calculationError, setCalculationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!prefecture) {
@@ -28,9 +29,10 @@ const ShippingCalculator = ({
     }
 
     setIsCalculating(true);
+    setCalculationError(null);
     
-    // Simulasi loading untuk UX yang lebih baik
-    const timer = setTimeout(() => {
+    try {
+      // Calculate shipping immediately instead of using setTimeout
       const details = calculateShippingCost(prefecture);
       const freeShipping = isFreeShipping(subtotal, prefecture);
       
@@ -41,10 +43,12 @@ const ShippingCalculator = ({
       
       setShippingDetails(finalDetails);
       onShippingCostChange(finalDetails.cost, finalDetails);
+    } catch (error) {
+      console.error('Error calculating shipping:', error);
+      setCalculationError('Gagal menghitung ongkir. Silakan coba lagi.');
+    } finally {
       setIsCalculating(false);
-    }, 300);
-
-    return () => clearTimeout(timer);
+    }
   }, [prefecture, subtotal, onShippingCostChange]);
 
   if (!prefecture) {
@@ -71,7 +75,30 @@ const ShippingCalculator = ({
     );
   }
 
-  if (!shippingDetails) return null;
+  if (calculationError) {
+    return (
+      <Card className={`border-red-200 bg-red-50 ${className}`}>
+        <CardContent className="py-6 text-center">
+          <p className="text-red-600 text-sm">{calculationError}</p>
+          <p className="text-red-500 text-xs mt-2">
+            Silakan pilih prefektur lain atau refresh halaman
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (!shippingDetails) {
+    return (
+      <Card className={`border-yellow-200 bg-yellow-50 ${className}`}>
+        <CardContent className="py-6 text-center">
+          <p className="text-yellow-600 text-sm">
+            Tidak dapat menghitung ongkir untuk prefektur ini
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const isFree = shippingDetails.cost === 0;
 
