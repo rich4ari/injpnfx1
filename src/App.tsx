@@ -21,7 +21,6 @@ import AddProduct from '@/pages/admin/AddProduct';
 import EditProduct from '@/pages/admin/EditProduct';
 import OrdersHistory from '@/pages/admin/OrdersHistory';
 import OrderConfirmation from '@/pages/admin/OrderConfirmation';
-import UserManagement from '@/pages/admin/UserManagement';
 import AdminLogs from '@/pages/admin/AdminLogs';
 import ImportExport from '@/pages/admin/ImportExport';
 import RecycleBin from '@/pages/admin/RecycleBin';
@@ -64,7 +63,6 @@ function App() {
               <Route path="/admin/products/edit/:id" element={<EditProduct />} />
               <Route path="/admin/orders-history" element={<OrdersHistory />} />
               <Route path="/admin/order-confirmation" element={<OrderConfirmation />} />
-              <Route path="/admin/users" element={<UserManagement />} />
               <Route path="/admin/logs" element={<AdminLogs />} />
               <Route path="/admin/import-export" element={<ImportExport />} />
               <Route path="/admin/recycle-bin" element={<RecycleBin />} />

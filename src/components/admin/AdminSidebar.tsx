@@ -3,7 +3,6 @@ import {
   LayoutDashboard, 
   Package, 
   ShoppingCart, 
-  Users, 
   CheckCircle,
   Upload,
   Trash2,
@@ -47,15 +46,15 @@ const AdminSidebar = () => {
       icon: Truck,
     },
     {
-      title: 'Manajemen User',
-      href: '/admin/users',
-      icon: Users,
-    },
-    {
       title: 'Import/Export',
       href: '/admin/import-export',
       icon: Upload,
     },
+    {
+      title: 'Recycle Bin',
+      href: '/admin/recycle-bin',
+      icon: Trash2,
+    }
   ];
 
   return (
