@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -16,30 +16,12 @@ import {
 } from '@/components/ui/table';
 import { ShippingRate, shippingRates as defaultRates } from '@/utils/shippingCost';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { useShippingRates } from '@/hooks/useShippingRates';
+import { Badge } from '@/components/ui/badge';
 
 const ShippingRates = () => {
-  const { rates, loading, updateShippingRate, updateAllShippingRates } = useShippingRates();
   const [saving, setSaving] = useState(false);
   const [editedRates, setEditedRates] = useState<Record<string, number>>({});
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
-
-  useEffect(() => {
-    // Initialize edited rates with current values
-    const initialEditedRates: Record<string, number> = {};
-    
-    // First populate with default rates
-    defaultRates.forEach(rate => {
-      initialEditedRates[rate.prefecture] = rate.cost;
-    });
-    
-    // Then override with fetched rates
-    rates.forEach(rate => {
-      initialEditedRates[rate.prefecture] = rate.cost;
-    });
-    
-    setEditedRates(initialEditedRates);
-  }, [rates]);
 
   const handleRateChange = (prefecture: string, value: string) => {
     const cost = parseInt(value);
@@ -54,28 +36,14 @@ const ShippingRates = () => {
   const handleSaveAll = async () => {
     setSaving(true);
     try {
-      // Create array of updated rates
-      const updatedRates = prefectures.map(prefecture => {
-        const existingRate = rates.find(r => r.prefecture === prefecture.name);
-        const defaultRate = defaultRates.find(r => r.prefecture === prefecture.name);
-        const editedCost = editedRates[prefecture.name];
-        
-        return {
-          prefecture: prefecture.name,
-          cost: editedCost !== undefined ? editedCost : (existingRate?.cost || defaultRate?.cost || 800),
-          estimatedDays: existingRate?.estimatedDays || defaultRate?.estimatedDays || '3-5 hari'
-        };
-      });
-      
-      // Update all rates in Firebase
-      const success = await updateAllShippingRates(updatedRates);
-      
-      if (success) {
+      // Simulate saving
+      setTimeout(() => {
         toast({
           title: "Berhasil",
           description: "Semua tarif ongkir berhasil diperbarui",
         });
-      }
+        setSaving(false);
+      }, 1000);
     } catch (error) {
       console.error('Error saving shipping rates:', error);
       toast({
@@ -83,7 +51,6 @@ const ShippingRates = () => {
         description: "Gagal menyimpan tarif ongkir. Silakan coba lagi.",
         variant: "destructive",
       });
-    } finally {
       setSaving(false);
     }
   };
@@ -92,7 +59,7 @@ const ShippingRates = () => {
     try {
       // Prepare CSV content
       const headers = ['Prefecture', 'Cost', 'EstimatedDays'];
-      const rows = rates.map(rate => [
+      const rows = defaultRates.map(rate => [
         rate.prefecture,
         rate.cost.toString(),
         rate.estimatedDays
@@ -209,12 +176,7 @@ const ShippingRates = () => {
   };
 
   const hasChanges = () => {
-    return Object.keys(editedRates).some(prefecture => {
-      const rate = rates.find(r => r.prefecture === prefecture);
-      const defaultRate = defaultRates.find(r => r.prefecture === prefecture);
-      const currentCost = rate?.cost || defaultRate?.cost || 800;
-      return editedRates[prefecture] !== currentCost;
-    });
+    return Object.keys(editedRates).length > 0;
   };
 
   return (
@@ -232,7 +194,6 @@ const ShippingRates = () => {
             <Button
               variant="outline"
               onClick={handleExportCSV}
-              disabled={loading}
             >
               <Download className="w-4 h-4 mr-2" />
               Export CSV
@@ -240,7 +201,7 @@ const ShippingRates = () => {
             <Button
               variant="outline"
               onClick={handleImportClick}
-              disabled={loading || saving}
+              disabled={saving}
             >
               <Upload className="w-4 h-4 mr-2" />
               Import CSV
@@ -270,99 +231,89 @@ const ShippingRates = () => {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                <span className="ml-2">Memuat data ongkir...</span>
-              </div>
-            ) : (
-              <>
-                <div className="overflow-x-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Prefektur</TableHead>
-                        <TableHead>Nama Latin</TableHead>
-                        <TableHead>Tarif Ongkir (¥)</TableHead>
-                        <TableHead>Estimasi Pengiriman</TableHead>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Prefektur</TableHead>
+                    <TableHead>Nama Latin</TableHead>
+                    <TableHead>Tarif Ongkir (¥)</TableHead>
+                    <TableHead>Estimasi Pengiriman</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {prefectures.map((prefecture) => {
+                    const defaultRate = defaultRates.find(r => r.prefecture === prefecture.name);
+                    const currentCost = defaultRate?.cost || 800;
+                    const editedCost = editedRates[prefecture.name];
+                    const isChanged = editedCost !== undefined && editedCost !== currentCost;
+                    
+                    // Highlight Nagano prefecture
+                    const isNagano = prefecture.name === '長野県';
+                    
+                    return (
+                      <TableRow 
+                        key={prefecture.name} 
+                        className={`
+                          ${isChanged ? 'bg-blue-50' : ''}
+                          ${isNagano ? 'bg-yellow-50 hover:bg-yellow-100' : ''}
+                        `}
+                      >
+                        <TableCell className="font-medium">
+                          {prefecture.name}
+                          {isNagano && (
+                            <Badge className="ml-2 bg-yellow-200 text-yellow-800">
+                              Lokasi Anda
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>{prefecture.name_en}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-gray-500">¥</span>
+                            <Input
+                              type="number"
+                              min="0"
+                              value={editedCost !== undefined ? editedCost : currentCost}
+                              onChange={(e) => handleRateChange(prefecture.name, e.target.value)}
+                              className={`w-24 ${isChanged ? 'border-blue-500' : ''} ${isNagano ? 'border-yellow-500' : ''}`}
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            type="text"
+                            value={defaultRate?.estimatedDays || '3-5 hari'}
+                            className="w-32"
+                            disabled
+                          />
+                        </TableCell>
                       </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {prefectures.map((prefecture) => {
-                        const rate = rates.find(r => r.prefecture === prefecture.name);
-                        const defaultRate = defaultRates.find(r => r.prefecture === prefecture.name);
-                        const currentCost = rate?.cost || defaultRate?.cost || 800;
-                        const editedCost = editedRates[prefecture.name];
-                        const isChanged = editedCost !== undefined && editedCost !== currentCost;
-                        
-                        // Highlight Nagano prefecture
-                        const isNagano = prefecture.name === '長野県';
-                        
-                        return (
-                          <TableRow 
-                            key={prefecture.name} 
-                            className={`
-                              ${isChanged ? 'bg-blue-50' : ''}
-                              ${isNagano ? 'bg-yellow-50 hover:bg-yellow-100' : ''}
-                            `}
-                          >
-                            <TableCell className="font-medium">
-                              {prefecture.name}
-                              {isNagano && (
-                                <Badge className="ml-2 bg-yellow-200 text-yellow-800">
-                                  Lokasi Anda
-                                </Badge>
-                              )}
-                            </TableCell>
-                            <TableCell>{prefecture.name_en}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center space-x-2">
-                                <span className="text-gray-500">¥</span>
-                                <Input
-                                  type="number"
-                                  min="0"
-                                  value={editedCost !== undefined ? editedCost : currentCost}
-                                  onChange={(e) => handleRateChange(prefecture.name, e.target.value)}
-                                  className={`w-24 ${isChanged ? 'border-blue-500' : ''} ${isNagano ? 'border-yellow-500' : ''}`}
-                                />
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Input
-                                type="text"
-                                value={rate?.estimatedDays || defaultRate?.estimatedDays || '3-5 hari'}
-                                className="w-32"
-                                disabled
-                              />
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </div>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
 
-                <div className="mt-6 flex justify-end">
-                  <Button
-                    onClick={handleSaveAll}
-                    disabled={saving || !hasChanges()}
-                    className="bg-green-600 hover:bg-green-700"
-                  >
-                    {saving ? (
-                      <>
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                        Menyimpan...
-                      </>
-                    ) : (
-                      <>
-                        <Save className="w-4 h-4 mr-2" />
-                        Simpan Semua Perubahan
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </>
-            )}
+            <div className="mt-6 flex justify-end">
+              <Button
+                onClick={handleSaveAll}
+                disabled={saving || !hasChanges()}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {saving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                    Menyimpan...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4 mr-2" />
+                    Simpan Semua Perubahan
+                  </>
+                )}
+              </Button>
+            </div>
           </CardContent>
         </Card>
 

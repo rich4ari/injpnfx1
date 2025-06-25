@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Truck, Clock, Gift } from 'lucide-react';
-import { formatShippingCost, isFreeShipping, ShippingRate } from '@/utils/shippingCost';
-import { useShippingRates } from '@/hooks/useShippingRates';
+import { formatShippingCost, isFreeShipping, ShippingRate, shippingRates } from '@/utils/shippingCost';
 
 interface ShippingCalculatorProps {
   prefecture: string;
@@ -20,7 +19,6 @@ const ShippingCalculator = ({
 }: ShippingCalculatorProps) => {
   const [shippingDetails, setShippingDetails] = useState<ShippingRate | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
-  const { rates, loading, getShippingRate } = useShippingRates();
 
   useEffect(() => {
     if (!prefecture) {
@@ -32,8 +30,8 @@ const ShippingCalculator = ({
     setIsCalculating(true);
     
     try {
-      // Get shipping rate from the real-time rates
-      const rateDetails = getShippingRate(prefecture);
+      // Find shipping rate for the selected prefecture
+      const rateDetails = shippingRates.find(rate => rate.prefecture === prefecture);
       
       if (rateDetails) {
         const freeShipping = isFreeShipping(subtotal, prefecture);
@@ -68,7 +66,7 @@ const ShippingCalculator = ({
     } finally {
       setIsCalculating(false);
     }
-  }, [prefecture, subtotal, rates, onShippingCostChange, getShippingRate]);
+  }, [prefecture, subtotal, onShippingCostChange]);
 
   if (!prefecture) {
     return (
@@ -83,7 +81,7 @@ const ShippingCalculator = ({
     );
   }
 
-  if (isCalculating || loading) {
+  if (isCalculating) {
     return (
       <Card className={className}>
         <CardContent className="py-6 text-center">

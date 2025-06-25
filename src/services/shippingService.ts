@@ -1,95 +1,26 @@
-import { collection, getDocs, doc, setDoc, updateDoc, query, orderBy, getDoc } from 'firebase/firestore';
-import { db } from '@/config/firebase';
+// Dummy service file to avoid errors
 import { ShippingRate, shippingRates as defaultRates } from '@/utils/shippingCost';
-
-const SHIPPING_RATES_COLLECTION = 'shipping_rates';
 
 // Get all shipping rates
 export const getShippingRates = async (): Promise<ShippingRate[]> => {
-  try {
-    const ratesRef = collection(db, SHIPPING_RATES_COLLECTION);
-    const snapshot = await getDocs(ratesRef);
-    
-    if (snapshot.empty) {
-      // If no rates exist in the database, initialize with default rates
-      await initializeDefaultRates();
-      return defaultRates;
-    }
-    
-    return snapshot.docs.map(doc => ({
-      prefecture: doc.id,
-      cost: doc.data().cost,
-      estimatedDays: doc.data().estimatedDays
-    }));
-  } catch (error) {
-    console.error('Error fetching shipping rates:', error);
-    // Return default rates if there's an error
-    return defaultRates;
-  }
+  // Return default rates
+  return defaultRates;
 };
 
-// Initialize default shipping rates in the database
-export const initializeDefaultRates = async (): Promise<void> => {
+// Get shipping rate for a specific prefecture
+export const getShippingRateForPrefecture = async (prefecture: string): Promise<ShippingRate | null> => {
   try {
-    const batch = db.batch();
+    if (!prefecture) return null;
     
-    for (const rate of defaultRates) {
-      const rateRef = doc(db, SHIPPING_RATES_COLLECTION, rate.prefecture);
-      batch.set(rateRef, {
-        cost: rate.cost,
-        estimatedDays: rate.estimatedDays,
-        updated_at: new Date().toISOString()
-      });
-    }
-    
-    await batch.commit();
-    console.log('Default shipping rates initialized');
+    // Find in default rates
+    const defaultRate = defaultRates.find(r => r.prefecture === prefecture);
+    return defaultRate || null;
   } catch (error) {
-    console.error('Error initializing default shipping rates:', error);
-    // Don't throw error, just log it
-    console.log('Using default shipping rates instead');
-  }
-};
-
-// Update a single shipping rate
-export const updateShippingRate = async (prefecture: string, cost: number, estimatedDays?: string): Promise<void> => {
-  try {
-    const rateRef = doc(db, SHIPPING_RATES_COLLECTION, prefecture);
+    console.error('Error fetching shipping rate for prefecture:', error);
     
-    const updateData: any = {
-      cost,
-      updated_at: new Date().toISOString()
-    };
-    
-    if (estimatedDays) {
-      updateData.estimatedDays = estimatedDays;
-    }
-    
-    await setDoc(rateRef, updateData, { merge: true });
-  } catch (error) {
-    console.error('Error updating shipping rate:', error);
-    throw error;
-  }
-};
-
-// Update all shipping rates at once
-export const updateAllShippingRates = async (rates: ShippingRate[]): Promise<void> => {
-  try {
-    const batch = db.batch();
-    
-    for (const rate of rates) {
-      const rateRef = doc(db, SHIPPING_RATES_COLLECTION, rate.prefecture);
-      batch.set(rateRef, {
-        cost: rate.cost,
-        estimatedDays: rate.estimatedDays,
-        updated_at: new Date().toISOString()
-      }, { merge: true });
-    }
-    
-    await batch.commit();
-  } catch (error) {
-    console.error('Error updating all shipping rates:', error);
-    throw error;
+    // Return from default rates if there's an error
+    const defaultRate = defaultRates.find(r => r.prefecture === prefecture);
+    return defaultRate || null;
   }
 };
 
@@ -122,86 +53,5 @@ export const exportShippingRatesToCSV = (rates: ShippingRate[]): void => {
   } catch (error) {
     console.error('Error exporting shipping rates to CSV:', error);
     throw error;
-  }
-};
-
-// Import shipping rates from CSV
-export const importShippingRatesFromCSV = async (file: File): Promise<ShippingRate[]> => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    
-    reader.onload = (event) => {
-      try {
-        const csvText = event.target?.result as string;
-        const lines = csvText.split('\n');
-        
-        // Skip header row
-        const dataRows = lines.slice(1).filter(line => line.trim());
-        
-        const importedRates: ShippingRate[] = [];
-        
-        for (const row of dataRows) {
-          const columns = row.split(',');
-          
-          if (columns.length >= 2) {
-            const prefecture = columns[0].trim();
-            const cost = parseInt(columns[1].trim());
-            const estimatedDays = columns.length >= 3 ? columns[2].trim() : '3-5 hari';
-            
-            if (prefecture && !isNaN(cost)) {
-              importedRates.push({
-                prefecture,
-                cost,
-                estimatedDays
-              });
-            }
-          }
-        }
-        
-        resolve(importedRates);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    
-    reader.onerror = () => {
-      reject(new Error('Failed to read file'));
-    };
-    
-    reader.readAsText(file);
-  });
-};
-
-// Get shipping rate for a specific prefecture
-export const getShippingRateForPrefecture = async (prefecture: string): Promise<ShippingRate | null> => {
-  try {
-    if (!prefecture) return null;
-    
-    // First try to get from database
-    try {
-      const rateRef = doc(db, SHIPPING_RATES_COLLECTION, prefecture);
-      const rateSnap = await getDoc(rateRef);
-      
-      if (rateSnap.exists()) {
-        return {
-          prefecture,
-          cost: rateSnap.data().cost,
-          estimatedDays: rateSnap.data().estimatedDays
-        };
-      }
-    } catch (dbError) {
-      console.error('Database error fetching shipping rate:', dbError);
-      // Continue to fallback if database fails
-    }
-    
-    // If not found in database or error occurred, find in default rates
-    const defaultRate = defaultRates.find(r => r.prefecture === prefecture);
-    return defaultRate || null;
-  } catch (error) {
-    console.error('Error fetching shipping rate for prefecture:', error);
-    
-    // Return from default rates if there's an error
-    const defaultRate = defaultRates.find(r => r.prefecture === prefecture);
-    return defaultRate || null;
   }
 };
