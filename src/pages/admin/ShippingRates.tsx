@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -17,11 +17,51 @@ import {
 import { ShippingRate, shippingRates as defaultRates } from '@/utils/shippingCost';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 
 const ShippingRates = () => {
   const [saving, setSaving] = useState(false);
   const [editedRates, setEditedRates] = useState<Record<string, number>>({});
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
+  const [currentRates, setCurrentRates] = useState<ShippingRate[]>([...defaultRates]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch current rates from Firebase
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        setLoading(true);
+        const ratesCollection = collection(db, 'shipping_rates');
+        const snapshot = await getDocs(ratesCollection);
+        
+        if (!snapshot.empty) {
+          const fetchedRates: ShippingRate[] = [];
+          snapshot.forEach(doc => {
+            fetchedRates.push(doc.data() as ShippingRate);
+          });
+          
+          if (fetchedRates.length > 0) {
+            setCurrentRates(fetchedRates);
+            console.log('Loaded shipping rates from Firebase:', fetchedRates.length);
+          }
+        } else {
+          console.log('No shipping rates found in Firebase, using defaults');
+        }
+      } catch (error) {
+        console.error('Error fetching shipping rates:', error);
+        toast({
+          title: "Error",
+          description: "Gagal memuat tarif ongkir. Menggunakan tarif default.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRates();
+  }, []);
 
   const handleRateChange = (prefecture: string, value: string) => {
     const cost = parseInt(value);
@@ -34,16 +74,37 @@ const ShippingRates = () => {
   };
 
   const handleSaveAll = async () => {
+    if (!hasChanges()) return;
+    
     setSaving(true);
     try {
-      // Simulate saving
-      setTimeout(() => {
-        toast({
-          title: "Berhasil",
-          description: "Semua tarif ongkir berhasil diperbarui",
-        });
-        setSaving(false);
-      }, 1000);
+      // Create updated rates by merging current rates with edited rates
+      const updatedRates = currentRates.map(rate => {
+        if (editedRates[rate.prefecture] !== undefined) {
+          return {
+            ...rate,
+            cost: editedRates[rate.prefecture]
+          };
+        }
+        return rate;
+      });
+
+      // Save each rate to Firebase
+      for (const rate of updatedRates) {
+        const rateRef = doc(db, 'shipping_rates', rate.prefecture);
+        await setDoc(rateRef, rate);
+      }
+
+      // Update current rates
+      setCurrentRates(updatedRates);
+      
+      // Clear edited rates
+      setEditedRates({});
+
+      toast({
+        title: "Berhasil",
+        description: "Semua tarif ongkir berhasil diperbarui",
+      });
     } catch (error) {
       console.error('Error saving shipping rates:', error);
       toast({
@@ -51,6 +112,7 @@ const ShippingRates = () => {
         description: "Gagal menyimpan tarif ongkir. Silakan coba lagi.",
         variant: "destructive",
       });
+    } finally {
       setSaving(false);
     }
   };
@@ -59,7 +121,7 @@ const ShippingRates = () => {
     try {
       // Prepare CSV content
       const headers = ['Prefecture', 'Cost', 'EstimatedDays'];
-      const rows = defaultRates.map(rate => [
+      const rows = currentRates.map(rate => [
         rate.prefecture,
         rate.cost.toString(),
         rate.estimatedDays
@@ -179,6 +241,42 @@ const ShippingRates = () => {
     return Object.keys(editedRates).length > 0;
   };
 
+  // Get rate for a prefecture (either edited or current)
+  const getRateForPrefecture = (prefecture: string): number => {
+    if (editedRates[prefecture] !== undefined) {
+      return editedRates[prefecture];
+    }
+    
+    const currentRate = currentRates.find(r => r.prefecture === prefecture);
+    if (currentRate) {
+      return currentRate.cost;
+    }
+    
+    const defaultRate = defaultRates.find(r => r.prefecture === prefecture);
+    return defaultRate?.cost || 800;
+  };
+
+  // Get estimated days for a prefecture
+  const getEstimatedDaysForPrefecture = (prefecture: string): string => {
+    const currentRate = currentRates.find(r => r.prefecture === prefecture);
+    if (currentRate) {
+      return currentRate.estimatedDays;
+    }
+    
+    const defaultRate = defaultRates.find(r => r.prefecture === prefecture);
+    return defaultRate?.estimatedDays || '3-5 hari';
+  };
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="p-8 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="p-8">
@@ -243,10 +341,9 @@ const ShippingRates = () => {
                 </TableHeader>
                 <TableBody>
                   {prefectures.map((prefecture) => {
-                    const defaultRate = defaultRates.find(r => r.prefecture === prefecture.name);
-                    const currentCost = defaultRate?.cost || 800;
+                    const currentCost = getRateForPrefecture(prefecture.name);
                     const editedCost = editedRates[prefecture.name];
-                    const isChanged = editedCost !== undefined && editedCost !== currentCost;
+                    const isChanged = editedCost !== undefined;
                     
                     // Highlight Nagano prefecture
                     const isNagano = prefecture.name === '長野県';
@@ -283,7 +380,7 @@ const ShippingRates = () => {
                         <TableCell>
                           <Input
                             type="text"
-                            value={defaultRate?.estimatedDays || '3-5 hari'}
+                            value={getEstimatedDaysForPrefecture(prefecture.name)}
                             className="w-32"
                             disabled
                           />

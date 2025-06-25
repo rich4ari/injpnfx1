@@ -1,4 +1,7 @@
 // Utility untuk menghitung ongkir berdasarkan prefektur
+import { collection, getDocs, doc, getDoc } from 'firebase/firestore';
+import { db } from '@/config/firebase';
+
 export interface ShippingRate {
   prefecture: string;
   cost: number;
@@ -78,7 +81,19 @@ export const DEFAULT_SHIPPING_COST = 800;
 
 export const calculateShippingCost = async (prefecture: string): Promise<ShippingRate> => {
   try {
-    // Find rate in static rates first (to avoid Firebase errors)
+    if (!prefecture) {
+      throw new Error('Prefecture is required');
+    }
+
+    // Try to get from Firebase first
+    const rateRef = doc(db, 'shipping_rates', prefecture);
+    const rateDoc = await getDoc(rateRef);
+    
+    if (rateDoc.exists()) {
+      return rateDoc.data() as ShippingRate;
+    }
+    
+    // If not in Firebase, find in static rates
     const staticRate = shippingRates.find(rate => rate.prefecture === prefecture);
     if (staticRate) {
       return staticRate;
@@ -86,7 +101,7 @@ export const calculateShippingCost = async (prefecture: string): Promise<Shippin
     
     // Return default if prefecture not found
     return {
-      prefecture: prefecture || 'Unknown',
+      prefecture: prefecture,
       cost: DEFAULT_SHIPPING_COST,
       estimatedDays: '3-5 hari'
     };
@@ -101,7 +116,7 @@ export const calculateShippingCost = async (prefecture: string): Promise<Shippin
     
     // Return default if prefecture not found or error occurs
     return {
-      prefecture: prefecture || 'Unknown',
+      prefecture: prefecture,
       cost: DEFAULT_SHIPPING_COST,
       estimatedDays: '3-5 hari'
     };

@@ -1,56 +1,91 @@
 import { useState, useEffect, useCallback } from 'react';
+import { 
+  getShippingRates, 
+  getShippingRateForPrefecture, 
+  updateShippingRate, 
+  updateMultipleShippingRates 
+} from '@/services/shippingService';
 import { ShippingRate, shippingRates as defaultRates } from '@/utils/shippingCost';
 
 export const useShippingRates = () => {
   const [rates, setRates] = useState<ShippingRate[]>(defaultRates);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
-  // Simple implementation that uses the default rates
-  const updateShippingRate = async (prefecture: string, cost: number, estimatedDays?: string) => {
+  // Fetch all shipping rates
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        setLoading(true);
+        const fetchedRates = await getShippingRates();
+        setRates(fetchedRates);
+      } catch (err) {
+        console.error('Error fetching shipping rates:', err);
+        setError(err as Error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRates();
+  }, []);
+
+  // Update a single shipping rate
+  const updateRate = async (prefecture: string, cost: number, estimatedDays?: string) => {
     try {
-      // Update local state only
-      setRates(prev => 
-        prev.map(rate => 
-          rate.prefecture === prefecture 
-            ? { ...rate, cost, ...(estimatedDays ? { estimatedDays } : {}) }
-            : rate
-        )
-      );
-      return true;
+      const success = await updateShippingRate(prefecture, cost, estimatedDays);
+      
+      if (success) {
+        // Update local state
+        setRates(prev => 
+          prev.map(rate => 
+            rate.prefecture === prefecture 
+              ? { ...rate, cost, ...(estimatedDays ? { estimatedDays } : {}) }
+              : rate
+          )
+        );
+      }
+      
+      return success;
     } catch (err) {
       console.error('Error updating shipping rate:', err);
       return false;
     }
   };
 
-  const updateAllShippingRates = async (newRates: ShippingRate[]) => {
+  // Update multiple shipping rates at once
+  const updateAllRates = async (newRates: ShippingRate[]) => {
     try {
-      // Update local state only
-      setRates(newRates);
-      return true;
+      const success = await updateMultipleShippingRates(newRates);
+      
+      if (success) {
+        // Update local state
+        setRates(newRates);
+      }
+      
+      return success;
     } catch (err) {
       console.error('Error updating all shipping rates:', err);
       return false;
     }
   };
 
-  const getShippingRate = useCallback((prefecture: string): ShippingRate | undefined => {
-    // Find in rates
-    const rate = rates.find(rate => rate.prefecture === prefecture);
-    if (rate) return rate;
-    
-    // If not found, find in default rates
-    const defaultRate = defaultRates.find(rate => rate.prefecture === prefecture);
-    return defaultRate;
-  }, [rates]);
+  // Get shipping rate for a specific prefecture
+  const getRate = useCallback(async (prefecture: string): Promise<ShippingRate | null> => {
+    try {
+      return await getShippingRateForPrefecture(prefecture);
+    } catch (err) {
+      console.error('Error getting shipping rate:', err);
+      return null;
+    }
+  }, []);
 
   return {
     rates,
     loading,
     error,
-    updateShippingRate,
-    updateAllShippingRates,
-    getShippingRate
+    updateRate,
+    updateAllRates,
+    getRate
   };
 };

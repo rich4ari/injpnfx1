@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Truck, Clock, Gift } from 'lucide-react';
-import { formatShippingCost, isFreeShipping, ShippingRate, shippingRates } from '@/utils/shippingCost';
+import { formatShippingCost, isFreeShipping, ShippingRate, calculateShippingCost } from '@/utils/shippingCost';
 
 interface ShippingCalculatorProps {
   prefecture: string;
@@ -29,22 +29,34 @@ const ShippingCalculator = ({
 
     setIsCalculating(true);
     
-    try {
-      // Find shipping rate for the selected prefecture
-      const rateDetails = shippingRates.find(rate => rate.prefecture === prefecture);
-      
-      if (rateDetails) {
-        const freeShipping = isFreeShipping(subtotal, prefecture);
+    const getShippingRate = async () => {
+      try {
+        // Get shipping rate from Firebase or fallback to static rates
+        const rateDetails = await calculateShippingCost(prefecture);
         
-        const finalDetails = {
-          ...rateDetails,
-          cost: freeShipping ? 0 : rateDetails.cost
-        };
-        
-        setShippingDetails(finalDetails);
-        onShippingCostChange(finalDetails.cost, finalDetails);
-      } else {
-        // Fallback rate if prefecture not found
+        if (rateDetails) {
+          const freeShipping = isFreeShipping(subtotal, prefecture);
+          
+          const finalDetails = {
+            ...rateDetails,
+            cost: freeShipping ? 0 : rateDetails.cost
+          };
+          
+          setShippingDetails(finalDetails);
+          onShippingCostChange(finalDetails.cost, finalDetails);
+        } else {
+          // Fallback rate if prefecture not found
+          const fallbackRate = {
+            prefecture: prefecture,
+            cost: 800,
+            estimatedDays: '3-5 hari'
+          };
+          setShippingDetails(fallbackRate);
+          onShippingCostChange(fallbackRate.cost, fallbackRate);
+        }
+      } catch (error) {
+        console.error('Error calculating shipping:', error);
+        // Use fallback rate instead of showing error
         const fallbackRate = {
           prefecture: prefecture,
           cost: 800,
@@ -52,20 +64,12 @@ const ShippingCalculator = ({
         };
         setShippingDetails(fallbackRate);
         onShippingCostChange(fallbackRate.cost, fallbackRate);
+      } finally {
+        setIsCalculating(false);
       }
-    } catch (error) {
-      console.error('Error calculating shipping:', error);
-      // Use fallback rate instead of showing error
-      const fallbackRate = {
-        prefecture: prefecture,
-        cost: 800,
-        estimatedDays: '3-5 hari'
-      };
-      setShippingDetails(fallbackRate);
-      onShippingCostChange(fallbackRate.cost, fallbackRate);
-    } finally {
-      setIsCalculating(false);
-    }
+    };
+
+    getShippingRate();
   }, [prefecture, subtotal, onShippingCostChange]);
 
   if (!prefecture) {

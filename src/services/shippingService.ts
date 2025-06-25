@@ -1,10 +1,28 @@
-// Dummy service file to avoid errors
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 import { ShippingRate, shippingRates as defaultRates } from '@/utils/shippingCost';
 
 // Get all shipping rates
 export const getShippingRates = async (): Promise<ShippingRate[]> => {
-  // Return default rates
-  return defaultRates;
+  try {
+    const ratesCollection = collection(db, 'shipping_rates');
+    const snapshot = await getDocs(ratesCollection);
+    
+    if (!snapshot.empty) {
+      const rates: ShippingRate[] = [];
+      snapshot.forEach(doc => {
+        rates.push(doc.data() as ShippingRate);
+      });
+      return rates;
+    }
+    
+    // If no rates in Firebase, return default rates
+    return defaultRates;
+  } catch (error) {
+    console.error('Error fetching shipping rates:', error);
+    // Return default rates if there's an error
+    return defaultRates;
+  }
 };
 
 // Get shipping rate for a specific prefecture
@@ -12,7 +30,15 @@ export const getShippingRateForPrefecture = async (prefecture: string): Promise<
   try {
     if (!prefecture) return null;
     
-    // Find in default rates
+    // Try to get from Firebase first
+    const rateRef = doc(db, 'shipping_rates', prefecture);
+    const rateDoc = await getDoc(rateRef);
+    
+    if (rateDoc.exists()) {
+      return rateDoc.data() as ShippingRate;
+    }
+    
+    // If not in Firebase, find in default rates
     const defaultRate = defaultRates.find(r => r.prefecture === prefecture);
     return defaultRate || null;
   } catch (error) {
@@ -21,6 +47,46 @@ export const getShippingRateForPrefecture = async (prefecture: string): Promise<
     // Return from default rates if there's an error
     const defaultRate = defaultRates.find(r => r.prefecture === prefecture);
     return defaultRate || null;
+  }
+};
+
+// Update shipping rate for a prefecture
+export const updateShippingRate = async (prefecture: string, cost: number, estimatedDays?: string): Promise<boolean> => {
+  try {
+    // Get current rate first
+    const currentRate = await getShippingRateForPrefecture(prefecture);
+    
+    // Create new rate object
+    const newRate: ShippingRate = {
+      prefecture,
+      cost,
+      estimatedDays: estimatedDays || (currentRate?.estimatedDays || '3-5 hari')
+    };
+    
+    // Save to Firebase
+    const rateRef = doc(db, 'shipping_rates', prefecture);
+    await setDoc(rateRef, newRate);
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating shipping rate:', error);
+    return false;
+  }
+};
+
+// Update multiple shipping rates at once
+export const updateMultipleShippingRates = async (rates: ShippingRate[]): Promise<boolean> => {
+  try {
+    // Use batch write for better performance
+    for (const rate of rates) {
+      const rateRef = doc(db, 'shipping_rates', rate.prefecture);
+      await setDoc(rateRef, rate);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error updating multiple shipping rates:', error);
+    return false;
   }
 };
 
@@ -52,6 +118,41 @@ export const exportShippingRatesToCSV = (rates: ShippingRate[]): void => {
     document.body.removeChild(link);
   } catch (error) {
     console.error('Error exporting shipping rates to CSV:', error);
+    throw error;
+  }
+};
+
+// Import shipping rates from CSV data
+export const importShippingRatesFromCSV = async (csvData: string): Promise<ShippingRate[]> => {
+  try {
+    const lines = csvData.split('\n');
+    
+    // Skip header row
+    const dataRows = lines.slice(1).filter(line => line.trim());
+    
+    const importedRates: ShippingRate[] = [];
+    
+    for (const row of dataRows) {
+      const columns = row.split(',');
+      
+      if (columns.length >= 3) {
+        const prefecture = columns[0].trim();
+        const cost = parseInt(columns[1].trim());
+        const estimatedDays = columns[2].trim();
+        
+        if (prefecture && !isNaN(cost)) {
+          importedRates.push({
+            prefecture,
+            cost,
+            estimatedDays: estimatedDays || '3-5 hari'
+          });
+        }
+      }
+    }
+    
+    return importedRates;
+  } catch (error) {
+    console.error('Error importing shipping rates from CSV:', error);
     throw error;
   }
 };
