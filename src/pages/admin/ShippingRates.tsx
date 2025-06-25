@@ -295,9 +295,25 @@ const ShippingRates = () => {
                         const editedCost = editedRates[prefecture.name];
                         const isChanged = editedCost !== undefined && editedCost !== currentCost;
                         
+                        // Highlight Nagano prefecture
+                        const isNagano = prefecture.name === '長野県';
+                        
                         return (
-                          <TableRow key={prefecture.name} className={isChanged ? 'bg-blue-50' : ''}>
-                            <TableCell className="font-medium">{prefecture.name}</TableCell>
+                          <TableRow 
+                            key={prefecture.name} 
+                            className={`
+                              ${isChanged ? 'bg-blue-50' : ''}
+                              ${isNagano ? 'bg-yellow-50 hover:bg-yellow-100' : ''}
+                            `}
+                          >
+                            <TableCell className="font-medium">
+                              {prefecture.name}
+                              {isNagano && (
+                                <Badge className="ml-2 bg-yellow-200 text-yellow-800">
+                                  Lokasi Anda
+                                </Badge>
+                              )}
+                            </TableCell>
                             <TableCell>{prefecture.name_en}</TableCell>
                             <TableCell>
                               <div className="flex items-center space-x-2">
@@ -307,7 +323,7 @@ const ShippingRates = () => {
                                   min="0"
                                   value={editedCost !== undefined ? editedCost : currentCost}
                                   onChange={(e) => handleRateChange(prefecture.name, e.target.value)}
-                                  className={`w-24 ${isChanged ? 'border-blue-500' : ''}`}
+                                  className={`w-24 ${isChanged ? 'border-blue-500' : ''} ${isNagano ? 'border-yellow-500' : ''}`}
                                 />
                               </div>
                             </TableCell>

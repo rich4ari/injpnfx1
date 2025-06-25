@@ -30,7 +30,7 @@ export const shippingRates: ShippingRate[] = [
   { prefecture: '静岡県', cost: 700, estimatedDays: '2-3 hari' },
   { prefecture: '岐阜県', cost: 800, estimatedDays: '3-4 hari' },
   { prefecture: '山梨県', cost: 750, estimatedDays: '2-3 hari' },
-  { prefecture: '長野県', cost: 800, estimatedDays: '3-4 hari' },
+  { prefecture: '長野県', cost: 800, estimatedDays: '3-4 hari' }, // Nagano
   { prefecture: '新潟県', cost: 850, estimatedDays: '3-4 hari' },
   { prefecture: '富山県', cost: 850, estimatedDays: '3-4 hari' },
   { prefecture: '石川県', cost: 850, estimatedDays: '3-4 hari' },
