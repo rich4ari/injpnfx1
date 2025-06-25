@@ -89,6 +89,19 @@ const ShippingRates = () => {
         return rate;
       });
 
+      // Add any new rates that might not be in currentRates
+      Object.entries(editedRates).forEach(([prefecture, cost]) => {
+        if (!updatedRates.some(rate => rate.prefecture === prefecture)) {
+          // Find the default rate for this prefecture to get the estimated days
+          const defaultRate = defaultRates.find(r => r.prefecture === prefecture);
+          updatedRates.push({
+            prefecture,
+            cost,
+            estimatedDays: defaultRate?.estimatedDays || '3-5 hari'
+          });
+        }
+      });
+
       // Save each rate to Firebase
       for (const rate of updatedRates) {
         const rateRef = doc(db, 'shipping_rates', rate.prefecture);
