@@ -38,7 +38,14 @@ const ShippingRates = () => {
         if (!snapshot.empty) {
           const fetchedRates: ShippingRate[] = [];
           snapshot.forEach(doc => {
-            fetchedRates.push(doc.data() as ShippingRate);
+            const data = doc.data();
+            if (data && data.prefecture && typeof data.cost === 'number') {
+              fetchedRates.push({
+                prefecture: data.prefecture,
+                cost: data.cost,
+                estimatedDays: data.estimatedDays || '3-5 hari'
+              });
+            }
           });
           
           if (fetchedRates.length > 0) {
@@ -106,8 +113,14 @@ const ShippingRates = () => {
 
       // Save each rate to Firebase
       for (const rate of updatedRates) {
-        const rateRef = doc(db, 'shipping_rates', rate.prefecture);
-        await setDoc(rateRef, rate);
+        if (rate && rate.prefecture) {
+          const rateRef = doc(db, 'shipping_rates', rate.prefecture);
+          await setDoc(rateRef, {
+            prefecture: rate.prefecture,
+            cost: rate.cost,
+            estimatedDays: rate.estimatedDays || '3-5 hari'
+          });
+        }
       }
 
       // Update current rates
@@ -139,7 +152,7 @@ const ShippingRates = () => {
       const rows = currentRates.map(rate => [
         rate.prefecture,
         rate.cost.toString(),
-        rate.estimatedDays
+        rate.estimatedDays || '3-5 hari'
       ]);
       
       const csvContent = [

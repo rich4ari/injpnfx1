@@ -131,7 +131,7 @@ export const exportShippingRatesToCSV = (rates: ShippingRate[]): void => {
     const rows = rates.map(rate => [
       rate.prefecture,
       rate.cost.toString(),
-      rate.estimatedDays
+      rate.estimatedDays || '3-5 hari'
     ]);
     
     const csvContent = [

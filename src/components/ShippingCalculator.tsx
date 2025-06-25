@@ -3,6 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Truck, Clock, Gift } from 'lucide-react';
 import { formatShippingCost, isFreeShipping, ShippingRate, calculateShippingCost } from '@/utils/shippingCost';
+import { getShippingRateForPrefecture } from '@/services/shippingService';
 
 interface ShippingCalculatorProps {
   prefecture: string;
@@ -31,19 +32,28 @@ const ShippingCalculator = ({
     
     const getShippingRate = async () => {
       try {
-        // Get shipping rate from Firebase or fallback to static rates
-        const rateDetails = await calculateShippingCost(prefecture);
+        // First try to get from Firebase
+        const firestoreRate = await getShippingRateForPrefecture(prefecture);
         
-        if (rateDetails) {
+        if (firestoreRate) {
           const freeShipping = isFreeShipping(subtotal, prefecture);
           
           const finalDetails = {
-            ...rateDetails,
-            cost: freeShipping ? 0 : rateDetails.cost
+            ...firestoreRate,
+            cost: freeShipping ? 0 : firestoreRate.cost
           };
           
           setShippingDetails(finalDetails);
           onShippingCostChange(finalDetails.cost, finalDetails);
+          return;
+        }
+        
+        // If not in Firestore, use the utility function with default rates
+        const rateDetails = await calculateShippingCost(prefecture, subtotal);
+        
+        if (rateDetails) {
+          setShippingDetails(rateDetails);
+          onShippingCostChange(rateDetails.cost, rateDetails);
         } else {
           // Fallback rate if prefecture not found
           const fallbackRate = {
