@@ -15,7 +15,7 @@ export const getShippingRates = async (): Promise<ShippingRate[]> => {
         if (data && data.prefecture && data.cost !== undefined) {
           rates.push({
             prefecture: data.prefecture,
-            cost: parseInt(data.cost) || 0,
+            cost: parseInt(String(data.cost)) || 0,
             estimatedDays: data.estimatedDays || '3-5 hari'
           });
         }
@@ -54,7 +54,7 @@ export const getShippingRateForPrefecture = async (prefecture: string): Promise<
       if (data && data.prefecture && data.cost !== undefined) {
         return {
           prefecture: data.prefecture,
-          cost: parseInt(data.cost) || 0,
+          cost: parseInt(String(data.cost)) || 0,
           estimatedDays: data.estimatedDays || '3-5 hari'
         };
       }

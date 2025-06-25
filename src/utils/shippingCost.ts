@@ -87,6 +87,10 @@ const KANTO_PREFECTURES = ['東京都', '神奈川県', '埼玉県', '千葉県'
  * @returns Boolean indicating if shipping is free
  */
 export const isFreeShipping = (subtotal: number, prefecture: string): boolean => {
+  if (!prefecture || !subtotal) {
+    return false;
+  }
+  
   // Free shipping for all Japan if order is above global threshold
   if (subtotal >= GLOBAL_FREE_SHIPPING_THRESHOLD) {
     return true;

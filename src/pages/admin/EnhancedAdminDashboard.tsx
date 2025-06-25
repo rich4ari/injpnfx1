@@ -5,9 +5,10 @@ import { Badge } from '@/components/ui/badge';
 import DashboardStatsCards from '@/components/admin/DashboardStatsCards';
 import AdminLayout from '@/components/admin/AdminLayout';
 import SeedDataButton from '@/components/admin/SeedDataButton';
-import { useEffect } from 'react';
+import { useEffect, memo } from 'react';
 
-const EnhancedAdminDashboard = () => {
+// Use memo to prevent unnecessary re-renders
+const EnhancedAdminDashboard = memo(() => {
   const { data: stats, isLoading: statsLoading } = useAdminStats();
   const { data: logs = [], isLoading: logsLoading } = useAdminLogs();
 
@@ -123,6 +124,8 @@ const EnhancedAdminDashboard = () => {
       </div>
     </AdminLayout>
   );
-};
+});
+
+EnhancedAdminDashboard.displayName = 'EnhancedAdminDashboard';
 
 export default EnhancedAdminDashboard;

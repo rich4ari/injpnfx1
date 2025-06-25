@@ -9,6 +9,7 @@ export const useOrders = () => {
     staleTime: 0, // Always consider data stale for real-time updates
     refetchInterval: 2000, // Refetch every 2 seconds
     refetchIntervalInBackground: true, // Continue refetching when tab is not active
+    refetchOnWindowFocus: false, // Prevent refetch on window focus
   });
 };
 
@@ -22,6 +23,7 @@ export const useUserOrders = (userId: string) => {
     refetchIntervalInBackground: false, // Don't refetch in background for user orders
     retry: 3, // Retry failed requests
     retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
+    refetchOnWindowFocus: false, // Prevent refetch on window focus
   });
 };
 
@@ -32,11 +34,15 @@ export const useCreateOrder = () => {
     mutationFn: async ({
       items,
       totalPrice,
+      subtotal,
+      shippingCost,
       customerInfo,
       userId
     }: {
       items: CartItem[];
       totalPrice: number;
+      subtotal?: number;
+      shippingCost?: number;
       customerInfo: any;
       userId?: string;
     }) => {
@@ -45,6 +51,8 @@ export const useCreateOrder = () => {
         customer_info: customerInfo,
         items: items,
         total_price: totalPrice,
+        subtotal: subtotal || totalPrice,
+        shippingCost: shippingCost || 0,
         status: 'pending'
       });
     },
