@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback, memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Truck, Clock, Gift } from 'lucide-react';
@@ -12,7 +12,8 @@ interface ShippingCalculatorProps {
   className?: string;
 }
 
-const ShippingCalculator = ({ 
+// Use memo to prevent unnecessary re-renders
+const ShippingCalculator = memo(({ 
   prefecture, 
   subtotal, 
   onShippingCostChange, 
@@ -21,75 +22,84 @@ const ShippingCalculator = ({
   const [shippingDetails, setShippingDetails] = useState<ShippingRate | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastPrefecture, setLastPrefecture] = useState<string>('');
 
-  useEffect(() => {
+  // Use useCallback to memoize the shipping rate calculation function
+  const getShippingRate = useCallback(async () => {
     if (!prefecture) {
       setShippingDetails(null);
       onShippingCostChange(0, { prefecture: '', cost: 0, estimatedDays: '' });
       return;
     }
 
+    // Skip if prefecture hasn't changed to prevent unnecessary calculations
+    if (prefecture === lastPrefecture && shippingDetails) {
+      return;
+    }
+
     setIsCalculating(true);
     setError(null);
+    setLastPrefecture(prefecture);
     
-    const getShippingRate = async () => {
-      try {
-        console.log(`Calculating shipping for prefecture: ${prefecture}, subtotal: ${subtotal}`);
+    try {
+      console.log(`Calculating shipping for prefecture: ${prefecture}, subtotal: ${subtotal}`);
+      
+      // First try to get from Firebase
+      const firestoreRate = await getShippingRateForPrefecture(prefecture);
+      
+      if (firestoreRate) {
+        console.log(`Found shipping rate in Firestore for ${prefecture}:`, firestoreRate);
+        const freeShipping = isFreeShipping(subtotal, prefecture);
         
-        // First try to get from Firebase
-        const firestoreRate = await getShippingRateForPrefecture(prefecture);
+        const finalDetails = {
+          ...firestoreRate,
+          cost: freeShipping ? 0 : firestoreRate.cost
+        };
         
-        if (firestoreRate) {
-          console.log(`Found shipping rate in Firestore for ${prefecture}:`, firestoreRate);
-          const freeShipping = isFreeShipping(subtotal, prefecture);
-          
-          const finalDetails = {
-            ...firestoreRate,
-            cost: freeShipping ? 0 : firestoreRate.cost
-          };
-          
-          setShippingDetails(finalDetails);
-          onShippingCostChange(finalDetails.cost, finalDetails);
-          return;
-        }
-        
-        // If not in Firestore, use the utility function with default rates
-        console.log(`No Firestore rate found for ${prefecture}, using default rates`);
-        const rateDetails = await calculateShippingCost(prefecture, subtotal);
-        
-        if (rateDetails) {
-          setShippingDetails(rateDetails);
-          onShippingCostChange(rateDetails.cost, rateDetails);
-        } else {
-          // Fallback rate if prefecture not found
-          const fallbackRate = {
-            prefecture: prefecture,
-            cost: 800,
-            estimatedDays: '3-5 hari'
-          };
-          console.log(`No default rate found for ${prefecture}, using fallback:`, fallbackRate);
-          setShippingDetails(fallbackRate);
-          onShippingCostChange(fallbackRate.cost, fallbackRate);
-        }
-      } catch (error) {
-        console.error('Error calculating shipping:', error);
-        setError('Gagal menghitung ongkir. Silakan coba lagi.');
-        
-        // Use fallback rate instead of showing error
+        setShippingDetails(finalDetails);
+        onShippingCostChange(finalDetails.cost, finalDetails);
+        return;
+      }
+      
+      // If not in Firestore, use the utility function with default rates
+      console.log(`No Firestore rate found for ${prefecture}, using default rates`);
+      const rateDetails = await calculateShippingCost(prefecture, subtotal);
+      
+      if (rateDetails) {
+        setShippingDetails(rateDetails);
+        onShippingCostChange(rateDetails.cost, rateDetails);
+      } else {
+        // Fallback rate if prefecture not found
         const fallbackRate = {
           prefecture: prefecture,
           cost: 800,
           estimatedDays: '3-5 hari'
         };
+        console.log(`No default rate found for ${prefecture}, using fallback:`, fallbackRate);
         setShippingDetails(fallbackRate);
         onShippingCostChange(fallbackRate.cost, fallbackRate);
-      } finally {
-        setIsCalculating(false);
       }
-    };
+    } catch (error) {
+      console.error('Error calculating shipping:', error);
+      setError('Gagal menghitung ongkir. Silakan coba lagi.');
+      
+      // Use fallback rate instead of showing error
+      const fallbackRate = {
+        prefecture: prefecture,
+        cost: 800,
+        estimatedDays: '3-5 hari'
+      };
+      setShippingDetails(fallbackRate);
+      onShippingCostChange(fallbackRate.cost, fallbackRate);
+    } finally {
+      setIsCalculating(false);
+    }
+  }, [prefecture, subtotal, onShippingCostChange, lastPrefecture, shippingDetails]);
 
+  // Calculate shipping when prefecture or subtotal changes
+  useEffect(() => {
     getShippingRate();
-  }, [prefecture, subtotal, onShippingCostChange]);
+  }, [getShippingRate]);
 
   if (!prefecture) {
     return (
@@ -198,6 +208,8 @@ const ShippingCalculator = ({
       </CardContent>
     </Card>
   );
-};
+});
+
+ShippingCalculator.displayName = 'ShippingCalculator';
 
 export default ShippingCalculator;

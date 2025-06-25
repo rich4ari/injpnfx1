@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -43,8 +43,10 @@ const CheckoutForm = ({ cart, total, onOrderComplete }: CheckoutFormProps) => {
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [shippingCost, setShippingCost] = useState(0);
   const [shippingDetails, setShippingDetails] = useState<ShippingRate | null>(null);
+  const [prefectureChangeCount, setPrefectureChangeCount] = useState(0);
   const { user } = useAuth();
   const createOrder = useCreateOrder();
+  const formRef = useRef<HTMLFormElement>(null);
 
   const form = useForm<CheckoutFormData>({
     resolver: zodResolver(checkoutSchema),
@@ -64,11 +66,18 @@ const CheckoutForm = ({ cart, total, onOrderComplete }: CheckoutFormProps) => {
   const subtotal = total;
   const finalTotal = subtotal + shippingCost;
 
-  const handleShippingCostChange = (cost: number, details: ShippingRate) => {
-    console.log('Shipping cost changed:', cost, details);
+  // Memoize the shipping cost change handler to prevent unnecessary re-renders
+  const handleShippingCostChange = useCallback((cost: number, details: ShippingRate) => {
     setShippingCost(cost);
     setShippingDetails(details);
-  };
+  }, []);
+
+  // Track prefecture changes without causing re-renders
+  useEffect(() => {
+    if (watchedPrefecture) {
+      setPrefectureChangeCount(prev => prev + 1);
+    }
+  }, [watchedPrefecture]);
 
   const generateWhatsAppMessage = (data: CheckoutFormData) => {
     const productList = cart.map(item => {
@@ -256,7 +265,7 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
         <h2 className="text-xl font-semibold mb-6 text-gray-800">Informasi Pengiriman</h2>
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form ref={formRef} onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <FormField
                 control={form.control}
@@ -308,7 +317,13 @@ Mohon konfirmasi pesanan saya. Terima kasih banyak!`;
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Prefektur *</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select 
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        // Don't scroll or focus after selection
+                      }} 
+                      defaultValue={field.value}
+                    >
                       <FormControl>
                         <SelectTrigger className="bg-white">
                           <SelectValue placeholder="Pilih prefektur" />

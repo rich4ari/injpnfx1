@@ -1,3 +1,4 @@
+import { memo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -15,7 +16,8 @@ interface CheckoutSummaryProps {
   className?: string;
 }
 
-const CheckoutSummary = ({
+// Use memo to prevent unnecessary re-renders
+const CheckoutSummary = memo(({
   cart,
   subtotal,
   shippingCost,
@@ -118,6 +120,8 @@ const CheckoutSummary = ({
       </CardContent>
     </Card>
   );
-};
+});
+
+CheckoutSummary.displayName = 'CheckoutSummary';
 
 export default CheckoutSummary;
