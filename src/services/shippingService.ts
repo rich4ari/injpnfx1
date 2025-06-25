@@ -11,9 +11,19 @@ export const getShippingRates = async (): Promise<ShippingRate[]> => {
     if (!snapshot.empty) {
       const rates: ShippingRate[] = [];
       snapshot.forEach(doc => {
-        rates.push(doc.data() as ShippingRate);
+        const data = doc.data();
+        if (data && data.prefecture && data.cost !== undefined) {
+          rates.push({
+            prefecture: data.prefecture,
+            cost: data.cost,
+            estimatedDays: data.estimatedDays || '3-5 hari'
+          });
+        }
       });
-      return rates;
+      
+      if (rates.length > 0) {
+        return rates;
+      }
     }
     
     // If no rates in Firebase, return default rates
@@ -35,7 +45,14 @@ export const getShippingRateForPrefecture = async (prefecture: string): Promise<
     const rateDoc = await getDoc(rateRef);
     
     if (rateDoc.exists()) {
-      return rateDoc.data() as ShippingRate;
+      const data = rateDoc.data();
+      if (data && data.prefecture && data.cost !== undefined) {
+        return {
+          prefecture: data.prefecture,
+          cost: data.cost,
+          estimatedDays: data.estimatedDays || '3-5 hari'
+        };
+      }
     }
     
     // If not in Firebase, find in default rates
@@ -53,6 +70,11 @@ export const getShippingRateForPrefecture = async (prefecture: string): Promise<
 // Update shipping rate for a prefecture
 export const updateShippingRate = async (prefecture: string, cost: number, estimatedDays?: string): Promise<boolean> => {
   try {
+    if (!prefecture) {
+      console.error('Prefecture is required');
+      return false;
+    }
+    
     // Get current rate first
     const currentRate = await getShippingRateForPrefecture(prefecture);
     
@@ -77,10 +99,21 @@ export const updateShippingRate = async (prefecture: string, cost: number, estim
 // Update multiple shipping rates at once
 export const updateMultipleShippingRates = async (rates: ShippingRate[]): Promise<boolean> => {
   try {
+    if (!rates || rates.length === 0) {
+      console.error('No rates provided');
+      return false;
+    }
+    
     // Use batch write for better performance
     for (const rate of rates) {
-      const rateRef = doc(db, 'shipping_rates', rate.prefecture);
-      await setDoc(rateRef, rate);
+      if (rate && rate.prefecture) {
+        const rateRef = doc(db, 'shipping_rates', rate.prefecture);
+        await setDoc(rateRef, {
+          prefecture: rate.prefecture,
+          cost: rate.cost,
+          estimatedDays: rate.estimatedDays || '3-5 hari'
+        });
+      }
     }
     
     return true;
