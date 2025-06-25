@@ -65,6 +65,7 @@ const CheckoutForm = ({ cart, total, onOrderComplete }: CheckoutFormProps) => {
   const finalTotal = subtotal + shippingCost;
 
   const handleShippingCostChange = (cost: number, details: ShippingRate) => {
+    console.log('Shipping cost changed:', cost, details);
     setShippingCost(cost);
     setShippingDetails(details);
   };

@@ -34,6 +34,8 @@ const ShippingCalculator = ({
     
     const getShippingRate = async () => {
       try {
+        console.log(`Calculating shipping for prefecture: ${prefecture}, subtotal: ${subtotal}`);
+        
         // First try to get from Firebase
         const firestoreRate = await getShippingRateForPrefecture(prefecture);
         
