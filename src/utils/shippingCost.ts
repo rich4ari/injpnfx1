@@ -108,6 +108,11 @@ export const isFreeShipping = (subtotal: number, prefecture: string): boolean =>
  */
 export const calculateShippingCost = async (prefecture: string, subtotal?: number): Promise<ShippingRate | null> => {
   try {
+    if (!prefecture) {
+      console.warn('Prefecture is required for shipping calculation');
+      return null;
+    }
+    
     // Find shipping rate for the prefecture
     const rate = shippingRates.find(r => r.prefecture === prefecture);
     

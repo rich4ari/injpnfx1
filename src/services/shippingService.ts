@@ -15,18 +15,20 @@ export const getShippingRates = async (): Promise<ShippingRate[]> => {
         if (data && data.prefecture && data.cost !== undefined) {
           rates.push({
             prefecture: data.prefecture,
-            cost: data.cost,
+            cost: parseInt(data.cost) || 0,
             estimatedDays: data.estimatedDays || '3-5 hari'
           });
         }
       });
       
       if (rates.length > 0) {
+        console.log(`Loaded ${rates.length} shipping rates from Firebase`);
         return rates;
       }
     }
     
     // If no rates in Firebase, return default rates
+    console.log('No shipping rates found in Firebase, using default rates');
     return defaultRates;
   } catch (error) {
     console.error('Error fetching shipping rates:', error);
@@ -38,7 +40,10 @@ export const getShippingRates = async (): Promise<ShippingRate[]> => {
 // Get shipping rate for a specific prefecture
 export const getShippingRateForPrefecture = async (prefecture: string): Promise<ShippingRate | null> => {
   try {
-    if (!prefecture) return null;
+    if (!prefecture) {
+      console.warn('Prefecture is required to get shipping rate');
+      return null;
+    }
     
     // Try to get from Firebase first
     const rateRef = doc(db, 'shipping_rates', prefecture);
@@ -49,7 +54,7 @@ export const getShippingRateForPrefecture = async (prefecture: string): Promise<
       if (data && data.prefecture && data.cost !== undefined) {
         return {
           prefecture: data.prefecture,
-          cost: data.cost,
+          cost: parseInt(data.cost) || 0,
           estimatedDays: data.estimatedDays || '3-5 hari'
         };
       }
@@ -75,7 +80,12 @@ export const updateShippingRate = async (prefecture: string, cost: number, estim
       return false;
     }
     
-    // Get current rate first
+    if (isNaN(cost) || cost < 0) {
+      console.error('Cost must be a valid non-negative number');
+      return false;
+    }
+    
+    // Get current rate first to preserve estimatedDays if not provided
     const currentRate = await getShippingRateForPrefecture(prefecture);
     
     // Create new rate object
@@ -89,6 +99,7 @@ export const updateShippingRate = async (prefecture: string, cost: number, estim
     const rateRef = doc(db, 'shipping_rates', prefecture);
     await setDoc(rateRef, newRate);
     
+    console.log(`Updated shipping rate for ${prefecture}: ¥${cost}`);
     return true;
   } catch (error) {
     console.error('Error updating shipping rate:', error);
@@ -104,18 +115,21 @@ export const updateMultipleShippingRates = async (rates: ShippingRate[]): Promis
       return false;
     }
     
+    console.log(`Updating ${rates.length} shipping rates...`);
+    
     // Use batch write for better performance
     for (const rate of rates) {
       if (rate && rate.prefecture) {
         const rateRef = doc(db, 'shipping_rates', rate.prefecture);
         await setDoc(rateRef, {
           prefecture: rate.prefecture,
-          cost: rate.cost,
+          cost: parseInt(String(rate.cost)) || 0,
           estimatedDays: rate.estimatedDays || '3-5 hari'
         });
       }
     }
     
+    console.log('All shipping rates updated successfully');
     return true;
   } catch (error) {
     console.error('Error updating multiple shipping rates:', error);

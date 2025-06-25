@@ -20,6 +20,7 @@ const ShippingCalculator = ({
 }: ShippingCalculatorProps) => {
   const [shippingDetails, setShippingDetails] = useState<ShippingRate | null>(null);
   const [isCalculating, setIsCalculating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!prefecture) {
@@ -29,6 +30,7 @@ const ShippingCalculator = ({
     }
 
     setIsCalculating(true);
+    setError(null);
     
     const getShippingRate = async () => {
       try {
@@ -36,6 +38,7 @@ const ShippingCalculator = ({
         const firestoreRate = await getShippingRateForPrefecture(prefecture);
         
         if (firestoreRate) {
+          console.log(`Found shipping rate in Firestore for ${prefecture}:`, firestoreRate);
           const freeShipping = isFreeShipping(subtotal, prefecture);
           
           const finalDetails = {
@@ -49,6 +52,7 @@ const ShippingCalculator = ({
         }
         
         // If not in Firestore, use the utility function with default rates
+        console.log(`No Firestore rate found for ${prefecture}, using default rates`);
         const rateDetails = await calculateShippingCost(prefecture, subtotal);
         
         if (rateDetails) {
@@ -61,11 +65,14 @@ const ShippingCalculator = ({
             cost: 800,
             estimatedDays: '3-5 hari'
           };
+          console.log(`No default rate found for ${prefecture}, using fallback:`, fallbackRate);
           setShippingDetails(fallbackRate);
           onShippingCostChange(fallbackRate.cost, fallbackRate);
         }
       } catch (error) {
         console.error('Error calculating shipping:', error);
+        setError('Gagal menghitung ongkir. Silakan coba lagi.');
+        
         // Use fallback rate instead of showing error
         const fallbackRate = {
           prefecture: prefecture,
@@ -101,6 +108,18 @@ const ShippingCalculator = ({
         <CardContent className="py-6 text-center">
           <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
           <p className="text-gray-600 text-sm">Menghitung ongkir...</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (error) {
+    return (
+      <Card className={`border-yellow-200 bg-yellow-50 ${className}`}>
+        <CardContent className="py-6 text-center">
+          <p className="text-yellow-600 text-sm">
+            {error}
+          </p>
         </CardContent>
       </Card>
     );

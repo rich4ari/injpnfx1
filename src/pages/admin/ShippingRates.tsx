@@ -17,8 +17,12 @@ import {
 import { ShippingRate, shippingRates as defaultRates } from '@/utils/shippingCost';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { collection, doc, getDocs, setDoc } from 'firebase/firestore';
-import { db } from '@/config/firebase';
+import { 
+  getShippingRates, 
+  updateShippingRate, 
+  updateMultipleShippingRates,
+  exportShippingRatesToCSV
+} from '@/services/shippingService';
 
 const ShippingRates = () => {
   const [saving, setSaving] = useState(false);
@@ -26,42 +30,29 @@ const ShippingRates = () => {
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
   const [currentRates, setCurrentRates] = useState<ShippingRate[]>([...defaultRates]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // Fetch current rates from Firebase
   useEffect(() => {
     const fetchRates = async () => {
       try {
         setLoading(true);
-        const ratesCollection = collection(db, 'shipping_rates');
-        const snapshot = await getDocs(ratesCollection);
+        setError(null);
         
-        if (!snapshot.empty) {
-          const fetchedRates: ShippingRate[] = [];
-          snapshot.forEach(doc => {
-            const data = doc.data();
-            if (data && data.prefecture && typeof data.cost === 'number') {
-              fetchedRates.push({
-                prefecture: data.prefecture,
-                cost: data.cost,
-                estimatedDays: data.estimatedDays || '3-5 hari'
-              });
-            }
-          });
-          
-          if (fetchedRates.length > 0) {
-            setCurrentRates(fetchedRates);
-            console.log('Loaded shipping rates from Firebase:', fetchedRates.length);
-          }
+        console.log('Fetching shipping rates from Firebase...');
+        const fetchedRates = await getShippingRates();
+        
+        if (fetchedRates && fetchedRates.length > 0) {
+          console.log(`Loaded ${fetchedRates.length} shipping rates from Firebase`);
+          setCurrentRates(fetchedRates);
         } else {
           console.log('No shipping rates found in Firebase, using defaults');
+          setCurrentRates([...defaultRates]);
         }
-      } catch (error) {
-        console.error('Error fetching shipping rates:', error);
-        toast({
-          title: "Error",
-          description: "Gagal memuat tarif ongkir. Menggunakan tarif default.",
-          variant: "destructive",
-        });
+      } catch (err) {
+        console.error('Error fetching shipping rates:', err);
+        setError('Gagal memuat tarif ongkir. Menggunakan tarif default.');
+        setCurrentRates([...defaultRates]);
       } finally {
         setLoading(false);
       }
@@ -84,7 +75,11 @@ const ShippingRates = () => {
     if (!hasChanges()) return;
     
     setSaving(true);
+    setError(null);
+    
     try {
+      console.log('Saving shipping rate changes...');
+      
       // Create updated rates by merging current rates with edited rates
       const updatedRates = currentRates.map(rate => {
         if (editedRates[rate.prefecture] !== undefined) {
@@ -112,29 +107,26 @@ const ShippingRates = () => {
       });
 
       // Save each rate to Firebase
-      for (const rate of updatedRates) {
-        if (rate && rate.prefecture) {
-          const rateRef = doc(db, 'shipping_rates', rate.prefecture);
-          await setDoc(rateRef, {
-            prefecture: rate.prefecture,
-            cost: rate.cost,
-            estimatedDays: rate.estimatedDays || '3-5 hari'
-          });
-        }
-      }
-
-      // Update current rates
-      setCurrentRates(updatedRates);
+      const result = await updateMultipleShippingRates(updatedRates);
       
-      // Clear edited rates
-      setEditedRates({});
+      if (result) {
+        // Update current rates
+        setCurrentRates(updatedRates);
+        
+        // Clear edited rates
+        setEditedRates({});
 
-      toast({
-        title: "Berhasil",
-        description: "Semua tarif ongkir berhasil diperbarui",
-      });
+        toast({
+          title: "Berhasil",
+          description: "Semua tarif ongkir berhasil diperbarui",
+        });
+      } else {
+        throw new Error('Failed to update shipping rates');
+      }
     } catch (error) {
       console.error('Error saving shipping rates:', error);
+      setError('Gagal menyimpan tarif ongkir. Silakan coba lagi.');
+      
       toast({
         title: "Error",
         description: "Gagal menyimpan tarif ongkir. Silakan coba lagi.",
@@ -147,29 +139,7 @@ const ShippingRates = () => {
 
   const handleExportCSV = () => {
     try {
-      // Prepare CSV content
-      const headers = ['Prefecture', 'Cost', 'EstimatedDays'];
-      const rows = currentRates.map(rate => [
-        rate.prefecture,
-        rate.cost.toString(),
-        rate.estimatedDays || '3-5 hari'
-      ]);
-      
-      const csvContent = [
-        headers.join(','),
-        ...rows.map(row => row.join(','))
-      ].join('\n');
-      
-      // Create and download CSV file
-      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `shipping-rates-${new Date().toISOString().split('T')[0]}.csv`);
-      link.style.visibility = 'hidden';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      exportShippingRatesToCSV(currentRates);
       
       toast({
         title: "Berhasil",
@@ -215,7 +185,7 @@ const ShippingRates = () => {
               const prefecture = columns[0].trim();
               const cost = parseInt(columns[1].trim());
               
-              if (prefecture && !isNaN(cost)) {
+              if (prefecture && !isNaN(cost) && cost >= 0) {
                 importedRates[prefecture] = cost;
               }
             }
@@ -341,6 +311,15 @@ const ShippingRates = () => {
             />
           </div>
         </div>
+
+        {error && (
+          <Alert className="mb-6 border-red-200 bg-red-50">
+            <AlertTriangle className="h-4 w-4 text-red-600" />
+            <AlertDescription className="text-red-600">
+              {error}
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Alert className="mb-6">
           <AlertTriangle className="h-4 w-4" />
