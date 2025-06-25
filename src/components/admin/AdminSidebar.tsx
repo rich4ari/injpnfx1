@@ -9,8 +9,10 @@ import {
   Truck
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { memo } from 'react';
 
-const AdminSidebar = () => {
+// Use memo to prevent unnecessary re-renders
+const AdminSidebar = memo(() => {
   const location = useLocation();
 
   const menuItems = [
@@ -96,6 +98,8 @@ const AdminSidebar = () => {
       </nav>
     </div>
   );
-};
+});
+
+AdminSidebar.displayName = 'AdminSidebar';
 
 export default AdminSidebar;

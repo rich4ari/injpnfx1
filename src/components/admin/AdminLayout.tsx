@@ -1,29 +1,21 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useFirebaseAuth';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, memo } from 'react';
 import AdminSidebar from './AdminSidebar';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
 }
 
-const AdminLayout = ({ children }: AdminLayoutProps) => {
+// Use memo to prevent unnecessary re-renders of the layout
+const AdminLayout = memo(({ children }: AdminLayoutProps) => {
   const { user, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const checkAdminStatus = () => {
-      console.log('Environment check:', {
-        isDev: window.location.hostname === 'localhost',
-        isProd: window.location.hostname.includes('vercel.app') || window.location.hostname.includes('.app'),
-        currentHost: window.location.hostname,
-        userEmail: user?.email
-      });
-
       if (user) {
-        console.log('Checking admin status for user:', user.email);
-        
         // Enhanced admin emails list with more flexibility
         const adminEmails = [
           'admin@gmail.com', 
@@ -31,16 +23,8 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
         ];
         
         const userIsAdmin = adminEmails.includes(user.email || '');
-        
-        console.log('Admin check result:', {
-          userEmail: user.email,
-          isAdmin: userIsAdmin,
-          adminEmails
-        });
-        
         setIsAdmin(userIsAdmin);
       } else {
-        console.log('No user found');
         setIsAdmin(false);
       }
       setLoading(false);
@@ -67,12 +51,10 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
   }
 
   if (!user) {
-    console.log('No user, redirecting to auth');
     return <Navigate to="/auth" replace />;
   }
 
   if (!isAdmin) {
-    console.log('User is not admin, redirecting to home. User email:', user.email);
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
@@ -103,6 +85,8 @@ const AdminLayout = ({ children }: AdminLayoutProps) => {
       </div>
     </div>
   );
-};
+});
+
+AdminLayout.displayName = 'AdminLayout';
 
 export default AdminLayout;

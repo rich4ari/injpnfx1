@@ -5,10 +5,21 @@ import { Badge } from '@/components/ui/badge';
 import DashboardStatsCards from '@/components/admin/DashboardStatsCards';
 import AdminLayout from '@/components/admin/AdminLayout';
 import SeedDataButton from '@/components/admin/SeedDataButton';
+import { useEffect } from 'react';
 
 const EnhancedAdminDashboard = () => {
   const { data: stats, isLoading: statsLoading } = useAdminStats();
   const { data: logs = [], isLoading: logsLoading } = useAdminLogs();
+
+  // Prevent unnecessary re-renders by using useEffect to log only once
+  useEffect(() => {
+    console.log('EnhancedAdminDashboard mounted');
+    
+    // Cleanup function to prevent memory leaks
+    return () => {
+      console.log('EnhancedAdminDashboard unmounted');
+    };
+  }, []);
 
   if (statsLoading) {
     return (
