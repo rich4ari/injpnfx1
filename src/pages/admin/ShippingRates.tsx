@@ -94,11 +94,13 @@ const ShippingRates = () => {
         if (!updatedRates.some(rate => rate.prefecture === prefecture)) {
           // Find the default rate for this prefecture to get the estimated days
           const defaultRate = defaultRates.find(r => r.prefecture === prefecture);
-          updatedRates.push({
-            prefecture,
-            cost,
-            estimatedDays: defaultRate?.estimatedDays || '3-5 hari'
-          });
+          if (defaultRate) {
+            updatedRates.push({
+              prefecture,
+              cost,
+              estimatedDays: defaultRate.estimatedDays || '3-5 hari'
+            });
+          }
         }
       });
 
@@ -272,7 +274,7 @@ const ShippingRates = () => {
   // Get estimated days for a prefecture
   const getEstimatedDaysForPrefecture = (prefecture: string): string => {
     const currentRate = currentRates.find(r => r.prefecture === prefecture);
-    if (currentRate) {
+    if (currentRate?.estimatedDays) {
       return currentRate.estimatedDays;
     }
     
